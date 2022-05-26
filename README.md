@@ -7,7 +7,21 @@ Ranked-voting is a Flask app that serves API endpoints for a ranked-choice votin
 
 ## Create an Election
 
-Creation of elections is performed using a `POST` request. The request body is a JSON object with the following fields:
+Creation of elections is performed using either a `GET` or `POST` request. 
+
+### ```GET```
+
+A `GET` request is the quickest way to setup a ranked-choice election, but offers no customization options since all fields take their default values. Create an election by appending a `/` separated list of candidates to the `/add` endpoint. 
+
+```bash
+curl --location --request GET 'https://ranked-voter.herokuapp.com/add/pancakes/waffles/ice-cream'
+```
+
+### ```POST```
+
+You can also create an election using a `POST` request. This is the most flexible way to create an election, but requires you to specify the fields you wish to customize.
+
+The request body is a JSON object with the following fields:
 
 ```json
 {

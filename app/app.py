@@ -18,18 +18,8 @@ load_dotenv()
 app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 
-@app.route("/")
-def index():
-    output = "A simple app for <a href='https://www.rankedvote.co/guides/understanding-ranked-choice-voting/how-does-ranked-choice-voting-work'>ranked-choice voting</a> in an election.<br><br>\n"
-    output += "Ranked-voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.<br><br>\n"
-    output += "You can learn more about the app including instructions to use it on the <a href='https://github.com/aditeyabaral/ranked-voting'>GitHub repository</a><br><br>"
-    output = f"<html><body>{output}</body></html>"
-    return output, 200
-
-@app.route("/add", methods=['POST'])
-def create_election():
+def get_election_data_post(request):
     # TODO: Add error handling -> required fields
-    http_prefix = "https" if request.is_secure else "http"
     election_id = request.json.get('election_id', election_db.generate_election_id(election_db))
     created_at = datetime.datetime.now(IST)
     created_by = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
@@ -39,7 +29,39 @@ def create_election():
     description = request.json.get('description', None)
     anonymous = request.json.get('anonymous', False)
     candidates = request.json.get('candidates', None)
+    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates
+
+def get_election_data_get(request):
+    # TODO: Add error handling -> required fields
+    election_id = election_db.generate_election_id(election_db)
+    created_at = datetime.datetime.now(IST)
+    created_by = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
+    election_name = None
+    start_time = created_at
+    end_time = None
+    description = None
+    anonymous = False
+    candidates = request.view_args.get('candidates', None).split('/')
+    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates
+
+@app.route("/")
+def index():
+    output = "A simple app for <a href='https://www.rankedvote.co/guides/understanding-ranked-choice-voting/how-does-ranked-choice-voting-work'>ranked-choice voting</a> in an election.<br><br>\n"
+    output += "Ranked-voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.<br><br>\n"
+    output += "You can learn more about the app including instructions to use it on the <a href='https://github.com/aditeyabaral/ranked-voting'>GitHub repository</a><br><br>"
+    output = f"<html><body>{output}</body></html>"
+    return output, 200
+
+@app.route("/add", methods=['POST'])
+@app.route("/add/<path:candidates>", methods=['GET'])
+def create_election(**candidates):
+    http_prefix = "https" if request.is_secure else "http"
+    if request.method == 'POST':
+        request_parser = get_election_data_post
+    else:
+        request_parser = get_election_data_get
     
+    election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates = request_parser(request)
     election_data = {
         'election_id': election_id,
         'created_at': created_at,
