@@ -9,30 +9,30 @@ Ranked-voting is a Flask app that serves API endpoints for a ranked-choice votin
 
 Creation of elections is performed using a `POST` request. The request body is a JSON object with the following fields:
 
-    ```json
-    {
-        "election_id": {OPTIONAL} A custom ID for the election. If not provided, a random ID will be generated.
-        "election_name": {OPTIONAL} The name of your election
-        "start_time": {OPTIONAL} when does the election start?
-        "end_time": {OPTIONAL} when does the election end?
-        "description": {OPTIONAL} A short description of your election
-        "anonymous": {OPTIONAL} true or false
-        "candidates": ["candidate-1", "candidate-2", ...]
-    }
-    ```
+```json
+{
+    "election_id": {OPTIONAL} A custom ID for the election. If not provided, a random ID will be generated.
+    "election_name": {OPTIONAL} The name of your election
+    "start_time": {OPTIONAL} when does the election start?
+    "end_time": {OPTIONAL} when does the election end?
+    "description": {OPTIONAL} A short description of your election
+    "anonymous": {OPTIONAL} true or false
+    "candidates": ["candidate-1", "candidate-2", ...]
+}
+```
 
 An example is provided below:
 
-    ```bash
-    curl --location --request POST 'https://ranked-voter.herokuapp.com/add' \
-    --header 'Content-Type: application/json' \
-    --data-raw '{
-        "election_name": "Food ranking",
-        "description": "Rank your favourite foods!",
-        "candidates": ["pancakes", "ice-cream", "waffles"],
-        "anonymous": true
-    }'
-    ```
+```bash
+curl --location --request POST 'https://ranked-voter.herokuapp.com/add' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "election_name": "Food ranking",
+    "description": "Rank your favourite foods!",
+    "candidates": ["pancakes", "ice-cream", "waffles"],
+    "anonymous": true
+}'
+```
 
 Once you create an election, you will be shown the `ELECTION_ID`. Remember to use this ID when casting your votes and to access results.
 
@@ -43,9 +43,9 @@ You can view your election results using a `GET` request to the `/ELECTION_ID` e
 An example is provided below:
 
 
-    ```bash
-    curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
-    ```
+```bash
+curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
+```
 
 ## Cast your votes
 
@@ -53,9 +53,9 @@ You can cast your votes using a `GET` request to the `vote/ELECTION_ID` endpoint
 
 An example is provided below:
 
-    ```bash
-    curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_ID/pancakes/icecream/waffles'
-    ```
+```bash
+curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_ID/pancakes/icecream/waffles'
+```
 
 ## What is *currently* not supported?
 
