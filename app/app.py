@@ -24,6 +24,7 @@ def index():
 
 @app.route("/add", methods=['POST'])
 def create_election():
+    # TODO: Add error handling -> required fields
     election_id = request.json.get('election_id', election_db.generate_election_id(election_db))
     created_at = datetime.datetime.now(IST)
     created_by = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
