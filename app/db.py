@@ -22,6 +22,7 @@ class ElectionDatabase:
         self.metadata = MetaData()
         self.Session = sessionmaker(bind=self.engine)
         self.session = self.Session()
+        logging.debug(f"Database connection established: {self}")
         self.setup_tables()
 
         self.election_table = Table(
