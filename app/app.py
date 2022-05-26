@@ -70,7 +70,11 @@ def create_election():
 @app.route("/<election_id>", methods=['GET'])
 def election_page(election_id):
     # TODO: format in following way and return
-    # content = f"Election ID: {election_id}\nElection Name: {election_data['election_name']}\nElection Description: {election_data['description']}\nElection Candidates: {election_data['candidates']}"
+    # Election ID: {election_id}
+    # Election Name: {election_data['election_name']}
+    # Election Description: {election_data['description']}
+    # Election Candidates: {election_data['candidates']}"
+    # ...
     election_data = election_db.get_election_data(election_id)
     logging.debug(f"Election data fetched: {election_data}")
     ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
