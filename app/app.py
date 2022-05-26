@@ -20,11 +20,16 @@ IST = pytz.timezone('Asia/Kolkata')
 
 @app.route("/")
 def index():
-    return "This voting is rigged xD", 200
+    output = "A simple app for <a href='https://www.rankedvote.co/guides/understanding-ranked-choice-voting/how-does-ranked-choice-voting-work'>ranked-choice voting</a> in an election.<br><br>\n"
+    output += "Ranked-voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.<br><br>\n"
+    output += "You can learn more about the app including instructions to use it on the <a href='https://github.com/aditeyabaral/ranked-voting'>GitHub repository</a><br><br>"
+    output = f"<html><body>{output}</body></html>"
+    return output, 200
 
 @app.route("/add", methods=['POST'])
 def create_election():
     # TODO: Add error handling -> required fields
+    http_prefix = "https" if request.is_secure else "http"
     election_id = request.json.get('election_id', election_db.generate_election_id(election_db))
     created_at = datetime.datetime.now(IST)
     created_by = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
@@ -64,7 +69,7 @@ def create_election():
         logging.error(f"Exception while creating election: {e}")
         return f"Error while creating election. Ensure you follow the instructions in the README while adding an election!\nError: {e}", 500
 
-    output = f"Your election has been successfully created! Here is your Election ID: {election_id}<br>\nYou can find your election's details on <a href='{urlparse(request.base_url).hostname}/{election_id}'>this link</a>"
+    output = f"Your election has been successfully created! Here is your Election ID: {election_id}<br>\nYou can find your election's details on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
     output = f"<html><body>{output}</body></html>"
     return output, 200
 
@@ -88,13 +93,14 @@ def election_page(election_id):
 
 @app.route("/vote/<election_id>/<path:votes>", methods=['GET'])
 def add_vote(election_id, votes):
+    http_prefix = "https" if request.is_secure else "http"
     ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
     votes = votes.split('/')
     votes = list(filter(bool, votes))
     logging.debug(f"Ranked votes by {ip_address}: {votes}")
     try:
         election_db.add_vote(election_id, ip_address, votes)
-        output = f"Your vote has been successfully recorded! You can now view the election results on <a href='{urlparse(request.base_url).hostname}/{election_id}'>this link</a>"
+        output = f"Your vote has been successfully recorded! You can now view the election results on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
         output = f"<html><body>{output}</body></html>"
         return output, 200
     except Exception as e:
