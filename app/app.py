@@ -3,7 +3,7 @@ import pytz
 import logging
 import datetime
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from urllib.parse import urlparse
 from db import ElectionDatabase
 
@@ -71,7 +71,8 @@ def create_election(**candidates):
         'end_time': end_time,
         'description': description,
         'anonymous': anonymous,
-        'candidates': candidates
+        'candidates': candidates,
+        'election_url': f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
     }
     logging.debug(f"Election creation data: {election_data}")
 
@@ -91,9 +92,9 @@ def create_election(**candidates):
         logging.error(f"Exception while creating election: {e}")
         return f"Error while creating election. Ensure you follow the instructions in the README while adding an election!\nError: {e}", 500
 
-    output = f"Your election has been successfully created! Here is your Election ID: {election_id}<br>\nYou can find your election's details on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
-    output = f"<html><body>{output}</body></html>"
-    return output, 200
+    # output = f"Your election has been successfully created! Here is your Election ID: {election_id}<br>\nYou can find your election's details on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
+    # output = f"<html><body>{output}</body></html>"
+    return jsonify(election_data), 200
 
 @app.route("/<election_id>", methods=['GET'])
 def election_page(election_id):
@@ -110,8 +111,8 @@ def election_page(election_id):
     for key in election_data:
         if ((key == "votes" and election_data['created_by'] == ip_address) or key != "votes"):
             output += f"{key}: {election_data[key]}<br>\n"
-    output = f"<html><body>{output}</body></html>"
-    return output, 200
+    # output = f"<html><body>{output}</body></html>"
+    return jsonify(election_data), 200
 
 @app.route("/vote/<election_id>/<path:votes>", methods=['GET'])
 def add_vote(election_id, votes):
@@ -120,14 +121,18 @@ def add_vote(election_id, votes):
     votes = votes.split('/')
     votes = list(filter(bool, votes))
     logging.debug(f"Ranked votes by {ip_address}: {votes}")
+    election_url = f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
+    output = {
+            'election_url': election_url
+        }
     try:
         election_db.add_vote(election_id, ip_address, votes)
-        output = f"Your vote has been successfully recorded! You can now view the election results on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
-        output = f"<html><body>{output}</body></html>"
-        return output, 200
+        output['election_status'] = True
+        return jsonify(output), 200
     except Exception as e:
         logging.error(f"Exception while voting: {e}")
-        return f"Error while voting: {e}", 500
+        output['election_status'] = False
+        return jsonify(output), 500
 
 if __name__ == "__main__":
     election_db = ElectionDatabase()
