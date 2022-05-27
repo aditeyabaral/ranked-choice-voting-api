@@ -3,3 +3,7 @@ __pycache__
 
 .env
 *.log
+
+README.html
+images/
+github-markdown-css/

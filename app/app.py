@@ -2,6 +2,7 @@ import os
 import pytz
 import logging
 import datetime
+import gh_md_to_html
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from urllib.parse import urlparse
@@ -44,13 +45,19 @@ def get_election_data_get(request):
     candidates = request.view_args.get('candidates', None).split('/')
     return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates
 
+def convert_readme_to_html():
+    if "README.html" not in os.listdir():
+        html = gh_md_to_html.main("README.md").strip()
+        with open("README.html", "w") as f:
+            f.write(html)
+
 @app.route("/")
 def index():
-    output = "A simple app for <a href='https://www.rankedvote.co/guides/understanding-ranked-choice-voting/how-does-ranked-choice-voting-work'>ranked-choice voting</a> in an election.<br><br>\n"
-    output += "Ranked-voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.<br><br>\n"
-    output += "You can learn more about the app including instructions to use it on the <a href='https://github.com/aditeyabaral/ranked-voting'>GitHub repository</a><br><br>"
-    output = f"<html><body>{output}</body></html>"
-    return output, 200
+    if "README.html" not in os.listdir():
+       convert_readme_to_html()
+    with open("README.html") as f:
+        output = f.read()
+        return output, 200
 
 @app.route("/add", methods=['POST'])
 @app.route("/add/<path:candidates>", methods=['GET'])
@@ -127,4 +134,5 @@ def add_vote(election_id, votes):
 
 if __name__ == "__main__":
     election_db = ElectionDatabase()
+    convert_readme_to_html()
     app.run(host='0.0.0.0', port = int(os.environ.get("PORT", 5000)))
