@@ -79,10 +79,13 @@ An example is provided below:
 curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_ID/pancakes/icecream/waffles'
 ```
 
-## What is *currently* not supported?
+## Remove your vote
 
-1. Delete your vote
-2. Better error handling
+You can remove your vote by sending a `GET` request to the `/unvote/ELECTION_ID` endpoint. Note that this action will remove only your vote, not all votes.
+
+```bash
+curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTION_ID'
+```
 
 # How to setup ranked-voting
 

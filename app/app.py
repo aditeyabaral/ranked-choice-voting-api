@@ -4,8 +4,9 @@ import logging
 import datetime
 import gh_md_to_html
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
 from urllib.parse import urlparse
+from flask import Flask, jsonify, request
+
 from db import ElectionDatabase
 
 logging.basicConfig(
@@ -106,6 +107,7 @@ def create_election(**candidates):
 def remove_election(election_id):
     output = dict()
     ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
+    logging.debug(f"Election removal request from {ip_address} for election {election_id}")
     try:
         election_db.remove_election(election_id, ip_address)
         output["status"] = True
@@ -147,6 +149,27 @@ def add_vote(election_id, votes):
         output['status'] = False
         output['message'] = e
     return jsonify(output), 500
+
+@app.route("/unvote/<election_id>", methods=['GET'])
+def remove_vote(election_id):
+    # TODO: Handle wrong election ID
+    http_prefix = "https" if request.is_secure else "http"
+    ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
+    election_url = f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
+    logging.debug(f"Unvoting {ip_address} for election {election_id}")
+    output = {'election_url': election_url}
+    try:
+        election_db.remove_vote(election_id, ip_address)
+        output['status'] = True
+        output['message'] = None
+        response_code = 200
+    except Exception as e:
+        logging.error(f"Exception while unvoting: {e}")
+        output['status'] = False
+        output['message'] = e
+        response_code = 500
+    return jsonify(output), response_code
+
 
 if __name__ == "__main__":
     election_db = ElectionDatabase()

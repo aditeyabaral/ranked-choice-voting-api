@@ -170,3 +170,51 @@ class ElectionDatabase:
             round_number=round_number
         )
         self.connection.execute(query)
+
+    def remove_vote(self, election_id, voter_ip):
+        current_time = datetime.datetime.now(IST)
+        election_votes = self.get_election_votes(election_id)
+        election_candidates = self.get_election_candidates(election_id)
+        election_start_time, election_end_time = self.get_election_time(election_id)
+
+        # check if election has not started
+        if current_time < election_start_time:
+            logging.error(f"Vote removal attempted before election start time: {current_time} < {election_start_time}")
+            raise Exception("Vote removal attempted before election start time")
+
+        # check if election has ended
+        if election_end_time is not None and current_time > election_end_time:
+            logging.error(f"Vote removal attempted after election end time: {current_time} > {election_end_time}")
+            raise Exception("Vote removal attempted after election end time")
+
+        # check if voter has already voted -> cannot remove vote
+        if election_votes is not None and voter_ip not in election_votes:
+            logging.error(f"Voter {voter_ip} has not voted")
+            raise Exception(f"Voter {voter_ip} has not voted")
+
+        # remove vote
+        if election_votes is not None:
+            del election_votes[voter_ip]
+            if not election_votes:
+                election_votes = None
+            logging.info(f"Removing vote for voter {voter_ip}")
+            logging.debug(f"New Votes: {election_votes}")
+
+        # update new votes in database
+        query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
+            votes=json.dumps(election_votes),
+            round_number=None,
+            winner=None
+        )
+        self.connection.execute(query)
+
+        # calculate new winner
+        if election_votes is not None:
+            election_results = get_election_results(election_candidates, election_votes)
+            logging.debug(f"Election Results: {election_results}")
+            winner, round_number = election_results
+            query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
+                winner=winner,
+                round_number=round_number
+            )
+            self.connection.execute(query)
