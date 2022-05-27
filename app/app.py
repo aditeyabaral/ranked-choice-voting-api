@@ -55,6 +55,7 @@ def index():
 @app.route("/add", methods=['POST'])
 @app.route("/add/<path:candidates>", methods=['GET'])
 def create_election(**candidates):
+    # TODO: Check if candidates are unique
     http_prefix = "https" if request.is_secure else "http"
     if request.method == 'POST':
         request_parser = get_election_data_post
@@ -88,51 +89,41 @@ def create_election(**candidates):
             anonymous,
             candidates
         )
+        return jsonify(election_data), 200
     except Exception as e:
         logging.error(f"Exception while creating election: {e}")
+        # TODO: Return JSON response, similar to add/
         return f"Error while creating election. Ensure you follow the instructions in the README while adding an election!\nError: {e}", 500
-
-    # output = f"Your election has been successfully created! Here is your Election ID: {election_id}<br>\nYou can find your election's details on <a href='{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}'>this link</a>"
-    # output = f"<html><body>{output}</body></html>"
-    return jsonify(election_data), 200
 
 @app.route("/<election_id>", methods=['GET'])
 def election_page(election_id):
-    # TODO: format in following way and return
-    # Election ID: {election_id}
-    # Election Name: {election_data['election_name']}
-    # Election Description: {election_data['description']}
-    # Election Candidates: {election_data['candidates']}"
-    # ...
+    # TODO: Handle wrong election ID
     election_data = election_db.get_election_data(election_id)
     logging.debug(f"Election data fetched: {election_data}")
     ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
-    output = str()
-    for key in election_data:
-        if ((key == "votes" and election_data['created_by'] == ip_address) or key != "votes"):
-            output += f"{key}: {election_data[key]}<br>\n"
-    # output = f"<html><body>{output}</body></html>"
+    if election_data['anonymous'] and ip_address != election_data['created_by']:
+        del election_data['votes']
     return jsonify(election_data), 200
 
 @app.route("/vote/<election_id>/<path:votes>", methods=['GET'])
 def add_vote(election_id, votes):
+    # TODO: Handle wrong election ID
     http_prefix = "https" if request.is_secure else "http"
     ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
     votes = votes.split('/')
     votes = list(filter(bool, votes))
     logging.debug(f"Ranked votes by {ip_address}: {votes}")
     election_url = f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
-    output = {
-            'election_url': election_url
-        }
+    output = {'election_url': election_url}
     try:
         election_db.add_vote(election_id, ip_address, votes)
-        output['election_status'] = True
-        return jsonify(output), 200
+        output['status'] = True
+        output['message'] = None
     except Exception as e:
         logging.error(f"Exception while voting: {e}")
-        output['election_status'] = False
-        return jsonify(output), 500
+        output['status'] = False
+        output['message'] = e
+    return jsonify(output), 500
 
 if __name__ == "__main__":
     election_db = ElectionDatabase()
