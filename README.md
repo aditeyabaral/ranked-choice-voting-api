@@ -7,7 +7,7 @@ Ranked-voting is a Flask app that serves API endpoints for a ranked-choice votin
 
 ## Create an Election
 
-Creation of elections is performed using either a `GET` or `POST` request. 
+Creation of elections is performed by sending either a `GET` or `POST` request. 
 
 ### ```GET```
 
@@ -19,7 +19,7 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/add/pancakes/w
 
 ### ```POST```
 
-You can also create an election using a `POST` request. This is the most flexible way to create an election, but requires you to specify the fields you wish to customize.
+You can also create an election by sending a `POST` request. This is the most flexible way to create an election, but requires you to specify the fields you wish to customize.
 
 The request body is a JSON object with the following fields:
 
@@ -52,7 +52,7 @@ Once you create an election, you will be shown the `ELECTION_ID`. Remember to us
 
 ## Retrieve Results
 
-You can view your election results using a `GET` request to the `/ELECTION_ID` endpoint.
+You can view your election results by sending a `GET` request to the `/ELECTION_ID` endpoint.
 
 An example is provided below:
 
@@ -61,9 +61,17 @@ An example is provided below:
 curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
 ```
 
+## Remove an Election
+
+You can remove an election by sending a `GET` request to the `/vote/ELECTION_ID` endpoint. Note that this action is irreversible and can only be performed by the person who created the election.
+
+```bash
+curl --location --request GET 'https://ranked-voter.herokuapp.com/remove/ELECTION_ID'
+```
+
 ## Cast your votes
 
-You can cast your votes using a `GET` request to the `vote/ELECTION_ID` endpoint. Append the URL with the ordered candidates, separated with a ```/```. Remember to include all the candidates since this is a ranked-choice voting.
+You can cast your votes by sending a `GET` request to the `vote/ELECTION_ID` endpoint. Append the URL with the ordered candidates, separated with a ```/```. Remember to include all the candidates since this is a ranked-choice voting.
 
 An example is provided below:
 
@@ -73,9 +81,8 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_
 
 ## What is *currently* not supported?
 
-1. Delete an election
-2. Delete your vote
-3. Better error handling
+1. Delete your vote
+2. Better error handling
 
 # How to setup ranked-voting
 

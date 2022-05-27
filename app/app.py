@@ -102,6 +102,22 @@ def create_election(**candidates):
         # TODO: Return JSON response, similar to add/
         return f"Error while creating election. Ensure you follow the instructions in the README while adding an election!\nError: {e}", 500
 
+@app.route("/remove/<election_id>", methods=['GET'])
+def remove_election(election_id):
+    output = dict()
+    ip_address = request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
+    try:
+        election_db.remove_election(election_id, ip_address)
+        output["status"] = True
+        output["message"] = None
+        response_code = 200
+    except Exception as e:
+        logging.error(f"Exception while removing election: {e}")
+        output["status"] = False
+        output["message"] = e
+        response_code = 500
+    return jsonify(output), response_code
+
 @app.route("/<election_id>", methods=['GET'])
 def election_page(election_id):
     # TODO: Handle wrong election ID
