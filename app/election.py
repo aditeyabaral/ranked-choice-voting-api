@@ -1,5 +1,6 @@
 import logging
 
+
 def get_election_results(candidates, votes, majority_threshold=None, round=1):
     logging.debug(f"Round: {round}")
 
@@ -30,7 +31,7 @@ def get_election_results(candidates, votes, majority_threshold=None, round=1):
         if first_choice_frequencies[candidate] >= majority_threshold:
             logging.debug(f"Winner is {candidate}")
             return candidate, round
-    
+
     # if no candidate has majority, find the candidate with least votes
     least_pair = min(first_choice_frequencies.items(), key=lambda x: x[1])
     least_votes_candidate, least_votes = least_pair

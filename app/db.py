@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, MetaData, Table
 load_dotenv()
 IST = pytz.timezone("Asia/Kolkata")
 
+
 class ElectionDatabase:
     def __init__(self):
         DATABASE_URL = os.environ.get("APP_DATABASE_URL")
@@ -39,10 +40,12 @@ class ElectionDatabase:
                 try:
                     self.connection.execute(query)
                 except Exception as e:
-                    logging.error(f"Exception while executing query: {query}: {e}")
+                    logging.error(
+                        f"Exception while executing query: {query}: {e}")
 
     def check_election_id_exists(self, election_id):
-        query = self.election_table.select().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
         result = self.connection.execute(query)
         return result.rowcount > 0
 
@@ -72,17 +75,21 @@ class ElectionDatabase:
         election_data = self.get_election_data(election_id)
         if election_data["created_by"] != ip_address:
             raise Exception("You are not authorized to remove this election.")
-        query = self.election_table.delete().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.delete().where(
+            self.election_table.c.election_id == election_id)
         self.connection.execute(query)
-        
+
     def get_election_data(self, election_id):
-        query = self.election_table.select().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
         result = self.connection.execute(query).fetchall()[0]
         election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates, votes, round_number, winner = result
         candidates = json.loads(candidates)
         votes = json.loads(votes) if votes is not None else votes
-        created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
-        start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
+        created_at = datetime.datetime.strftime(
+            created_at, "%Y-%m-%d %H:%M:%S")
+        start_time = datetime.datetime.strftime(
+            start_time, "%Y-%m-%d %H:%M:%S")
         end_time = str(end_time) if end_time is not None else end_time
         return {
             "election_id": election_id,
@@ -100,19 +107,22 @@ class ElectionDatabase:
         }
 
     def get_election_votes(self, election_id):
-        query = self.election_table.select().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
         result = self.connection.execute(query).fetchall()[0]
         votes = json.loads(result[-3]) if result[-3] is not None else None
         return votes
 
     def get_election_candidates(self, election_id):
-        query = self.election_table.select().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
         result = self.connection.execute(query).fetchall()[0]
         candidates = json.loads(result[-4]) if result[-4] is not None else None
         return candidates
 
     def get_election_time(self, election_id):
-        query = self.election_table.select().where(self.election_table.c.election_id == election_id)
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
         result = self.connection.execute(query).fetchall()[0]
         start_time, end_time = result[4], result[5]
         start_time = IST.localize(start_time)
@@ -123,22 +133,27 @@ class ElectionDatabase:
         current_time = datetime.datetime.now(IST)
         election_votes = self.get_election_votes(election_id)
         election_candidates = self.get_election_candidates(election_id)
-        election_start_time, election_end_time = self.get_election_time(election_id)
+        election_start_time, election_end_time = self.get_election_time(
+            election_id)
 
         # check if election has not started
         if current_time < election_start_time:
-            logging.error(f"Vote attempted before election start time: {current_time} < {election_start_time}")
+            logging.error(
+                f"Vote attempted before election start time: {current_time} < {election_start_time}")
             raise Exception("Vote attempted before election start time")
-        
+
         # check if election has ended
         if election_end_time is not None and current_time > election_end_time:
-                logging.error(f"Vote attempted after election end time: {current_time} > {election_end_time}")
-                raise Exception("Vote attempted after election end time")
+            logging.error(
+                f"Vote attempted after election end time: {current_time} > {election_end_time}")
+            raise Exception("Vote attempted after election end time")
 
         # check if votes contain all candidates
         if set(election_candidates) != set(votes):
-            logging.error(f"Votes contain invalid candidates. Valid candidates are: {election_candidates}")
-            raise Exception(f"Invalid candidates. Valid candidates are: {election_candidates}")
+            logging.error(
+                f"Votes contain invalid candidates. Valid candidates are: {election_candidates}")
+            raise Exception(
+                f"Invalid candidates. Valid candidates are: {election_candidates}")
 
         # check if voter has already voted -> prevent voter from updating votes
         # if election_votes is not None and voter_ip in election_votes:
@@ -154,7 +169,7 @@ class ElectionDatabase:
             election_votes[voter_ip] = votes
         logging.info(f"Adding vote for voter {voter_ip}")
         logging.debug(f"New Votes: {election_votes}")
-        
+
         # update new votes in database
         query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
             votes=json.dumps(election_votes)
@@ -162,7 +177,8 @@ class ElectionDatabase:
         self.connection.execute(query)
 
         # calculate new winner
-        election_results = get_election_results(election_candidates, election_votes)
+        election_results = get_election_results(
+            election_candidates, election_votes)
         logging.debug(f"Election Results: {election_results}")
         winner, round_number = election_results
         query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
@@ -175,16 +191,20 @@ class ElectionDatabase:
         current_time = datetime.datetime.now(IST)
         election_votes = self.get_election_votes(election_id)
         election_candidates = self.get_election_candidates(election_id)
-        election_start_time, election_end_time = self.get_election_time(election_id)
+        election_start_time, election_end_time = self.get_election_time(
+            election_id)
 
         # check if election has not started
         if current_time < election_start_time:
-            logging.error(f"Vote removal attempted before election start time: {current_time} < {election_start_time}")
-            raise Exception("Vote removal attempted before election start time")
+            logging.error(
+                f"Vote removal attempted before election start time: {current_time} < {election_start_time}")
+            raise Exception(
+                "Vote removal attempted before election start time")
 
         # check if election has ended
         if election_end_time is not None and current_time > election_end_time:
-            logging.error(f"Vote removal attempted after election end time: {current_time} > {election_end_time}")
+            logging.error(
+                f"Vote removal attempted after election end time: {current_time} > {election_end_time}")
             raise Exception("Vote removal attempted after election end time")
 
         # check if voter has already voted -> cannot remove vote
@@ -210,7 +230,8 @@ class ElectionDatabase:
 
         # calculate new winner
         if election_votes is not None:
-            election_results = get_election_results(election_candidates, election_votes)
+            election_results = get_election_results(
+                election_candidates, election_votes)
             logging.debug(f"Election Results: {election_results}")
             winner, round_number = election_results
             query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
