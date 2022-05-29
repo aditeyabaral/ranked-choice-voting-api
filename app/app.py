@@ -241,8 +241,7 @@ def add_vote(election_id, votes):
         num_votes = len(votes)
         valid_candidates = election_db.get_election_candidates(election_id)
         valid_candidates_string = ", ".join(valid_candidates)
-        # and all(candidate in valid_candidates for candidate in votes)):
-        if not (num_votes > 0 and num_votes == len(set(votes)) and num_votes == len(valid_candidates)):
+        if not (num_votes > 0 and num_votes == len(set(votes)) and num_votes == len(valid_candidates) and all(candidate in valid_candidates for candidate in votes)):
             valid_candidates = ', '.join(valid_candidates)
             raise Exception(
                 f"Invalid vote candidates. Valid candidates are: {valid_candidates_string}")
