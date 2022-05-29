@@ -133,6 +133,7 @@ class ElectionDatabase:
         current_time = datetime.datetime.now(IST)
         election_votes = self.get_election_votes(election_id)
         election_candidates = self.get_election_candidates(election_id)
+        election_candidates_string = ", ".join(election_candidates)
         election_start_time, election_end_time = self.get_election_time(
             election_id)
 
@@ -151,9 +152,9 @@ class ElectionDatabase:
         # check if votes contain all candidates
         if set(election_candidates) != set(votes):
             logging.error(
-                f"Votes contain invalid candidates. Valid candidates are: {election_candidates}")
+                f"Votes contain invalid candidates. Valid candidates are: {election_candidates_string}")
             raise Exception(
-                f"Invalid candidates. Valid candidates are: {election_candidates}")
+                f"Invalid candidates. Valid candidates are: {election_candidates_string}")
 
         # check if voter has already voted -> prevent voter from updating votes
         # if election_votes is not None and voter_ip in election_votes:
@@ -208,7 +209,7 @@ class ElectionDatabase:
             raise Exception("Vote removal attempted after election end time")
 
         # check if voter has already voted -> cannot remove vote
-        if election_votes is not None and voter_ip not in election_votes:
+        if election_votes is None or (election_votes is not None and voter_ip not in election_votes):
             logging.error(f"Voter {voter_ip} has not voted")
             raise Exception(f"Voter {voter_ip} has not voted")
 

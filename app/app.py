@@ -81,22 +81,23 @@ def index():
 @app.route("/add/<path:candidates>", methods=['GET'])
 def create_election(**candidates):
     http_prefix = "https" if request.is_secure else "http"
+    if request.method == 'POST':
+        request_parser = get_election_data_post
+    else:
+        request_parser = get_election_data_get
+
     try:
-        if request.method == 'POST':
-            request_parser = get_election_data_post
-        else:
-            request_parser = get_election_data_get
+        election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates = request_parser(
+            request)
     except Exception as e:
         logging.error(f"Error in creating election - {request}: {e}")
         output = {
             "status": False,
-            "message": "Error occurred while creating election. This might be due to invalid data in the request.",
+            "message": "Error occurred while creating election. This might also be due to invalid data in the request.",
             "error": str(e)
         }
         return jsonify(output), 400
 
-    election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates = request_parser(
-        request)
     election_data = {
         'election_id': election_id,
         'created_at': created_at,
@@ -133,7 +134,7 @@ def create_election(**candidates):
         logging.error(f"Exception while inserting new election: {e}")
         output = {
             "status": False,
-            "message": "Error occurred while creating election. This might be due to a database error. Contact the administrators for more information.",
+            "message": "Error occurred while creating election. This might also be due to a database error. Contact the administrators for more information.",
             "error": str(e)
         }
         response_code = 400
@@ -150,7 +151,7 @@ def remove_election(election_id):
             f"Exception occurred while removing election {election_id}: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while removing election. This might be due to an invalid election ID.",
+            "message": f"Error occurred while removing election. This might also be due to an invalid election ID.",
             "error": str(e)
         }
         return jsonify(output), 400
@@ -170,8 +171,8 @@ def remove_election(election_id):
     except Exception as e:
         logging.error(f"Exception occurred while removing election: {e}")
         output["status"] = False
-        output["message"] = f"Error occurred while removing election {election_id}. This might be due to a database error. Contact the administrators for more information."
-        output["error"] = e
+        output["message"] = f"Error occurred while removing election {election_id}. This might also be due to a database error. Contact the administrators for more information."
+        output["error"] = str(e)
         response_code = 400
     return jsonify(output), response_code
 
@@ -186,7 +187,7 @@ def election_page(election_id):
             f"Exception occurred while retrieving election {election_id} details: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while retrieving election details. This might be due to an invalid election ID.",
+            "message": f"Error occurred while retrieving election details. This might also be due to an invalid election ID.",
             "error": str(e)
         }
         return jsonify(output), 400
@@ -209,7 +210,7 @@ def election_page(election_id):
             f"Exception occurred while retrieving election details for {election_id}: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while retrieving election details for {election_id}. This might be due to a database error. Contact the administrators for more information.",
+            "message": f"Error occurred while retrieving election details for {election_id}. This might also be due to a database error. Contact the administrators for more information.",
             "error": str(e)
         }
         response_code = 400
@@ -226,7 +227,7 @@ def add_vote(election_id, votes):
             f"Exception occurred while adding vote to {election_id}: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while adding vote. This might be due to an invalid election ID.",
+            "message": f"Error occurred while adding vote. This might also be due to an invalid election ID.",
             "error": str(e)
         }
         return jsonify(output), 400
@@ -238,14 +239,18 @@ def add_vote(election_id, votes):
     votes = list(filter(bool, votes))
     try:
         num_votes = len(votes)
-        assert num_votes > 0 and num_votes == len(set(votes))
-        assert num_votes == len(
-            election_db.get_election_candidates(election_id))
+        valid_candidates = election_db.get_election_candidates(election_id)
+        valid_candidates_string = ", ".join(valid_candidates)
+        # and all(candidate in valid_candidates for candidate in votes)):
+        if not (num_votes > 0 and num_votes == len(set(votes)) and num_votes == len(valid_candidates)):
+            valid_candidates = ', '.join(valid_candidates)
+            raise Exception(
+                f"Invalid vote candidates. Valid candidates are: {valid_candidates_string}")
     except Exception as e:
         logging.error(f"Exception occurred while adding vote: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while adding vote. This might be due to an invalid candidates.",
+            "message": f"Error occurred while adding vote. This might also be due to invalid vote candidates.",
             "error": str(e)
         }
         return jsonify(output), 400
@@ -260,8 +265,8 @@ def add_vote(election_id, votes):
     except Exception as e:
         logging.error(f"Exception occurred while adding vote: {e}")
         output['status'] = False
-        output['message'] = "Error occurred while adding vote. This might be due to a database error. Contact the administrators for more information."
-        output['error'] = e
+        output['message'] = "Error occurred while adding vote. This might also be due to a database error. Contact the administrators for more information."
+        output['error'] = str(e)
         response_code = 400
     return jsonify(output), response_code
 
@@ -276,7 +281,7 @@ def remove_vote(election_id):
             f"Exception occurred while removing vote from {election_id}: {e}")
         output = {
             "status": False,
-            "message": f"Error occurred while removing vote. This might be due to an invalid election ID.",
+            "message": f"Error occurred while removing vote. This might also be due to an invalid election ID.",
             "error": str(e)
         }
         return jsonify(output), 400
@@ -294,8 +299,8 @@ def remove_vote(election_id):
     except Exception as e:
         logging.error(f"Exception occurred while unvoting: {e}")
         output['status'] = False
-        output['message'] = "Error occurred while removing vote. This might be due to a database error. Contact the administrators for more information."
-        output['error'] = e
+        output['message'] = "Error occurred while removing vote. This might also be due to a database error. Contact the administrators for more information."
+        output['error'] = str(e)
         response_code = 400
     return jsonify(output), response_code
 
