@@ -1,7 +1,33 @@
+import copy
 import logging
 
 
+def resolve_tiebreaker(candidates, votes):
+    logging.debug("Resolving tiebreaker")
+    num_candidates = len(candidates)
+    candidate_scores = dict()
+
+    # Finding candidates Borda Count
+    for voter in votes:
+        for idx, candidate in enumerate(votes[voter]):
+            if candidate not in candidate_scores:
+                candidate_scores[candidate] = 0
+            candidate_scores[candidate] += num_candidates - idx + 1
+    logging.debug(f"Candidate scores: {candidate_scores}")
+
+    # Finding max candidate score
+    max_candidate_score = max(candidate_scores.values())
+    logging.debug(f"Max candidate score: {max_candidate_score}")
+
+    # Return candidate with max score (if tied again, return first candidate)
+    max_score_candidates = [
+        candidate for candidate in candidate_scores if candidate_scores[candidate] == max_candidate_score]
+    return max_score_candidates[0]
+
+
 def get_election_results(candidates, votes, majority_threshold=None, round=1):
+    votes = copy.deepcopy(votes)
+    candidates = copy.deepcopy(candidates)
     logging.debug(f"Round: {round}")
 
     # Calculating majority threshold
@@ -22,8 +48,9 @@ def get_election_results(candidates, votes, majority_threshold=None, round=1):
             first_choice_frequencies[votes[voter][0]] += 1
     logging.debug(f"First choice frequencies: {first_choice_frequencies}")
 
-    # check if all values are equal
-    if len(set(first_choice_frequencies.values())) == 1:
+    # check if candidates have same number of votes
+    if len(set(first_choice_frequencies.values())) == 1 and len(first_choice_frequencies) > 1:
+        logging.debug("Tiebreaker needed")
         return "tied", round
 
     # check if any value is equal to majority_threshold, return that candidate

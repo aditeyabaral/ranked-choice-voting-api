@@ -5,10 +5,10 @@ import uuid
 import logging
 import datetime
 from dotenv import load_dotenv
-from election import get_election_results
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy.ext.declarative import declarative_base
+from election import get_election_results, resolve_tiebreaker
 
 load_dotenv()
 IST = pytz.timezone("Asia/Kolkata")
@@ -182,6 +182,8 @@ class ElectionDatabase:
             election_candidates, election_votes)
         logging.debug(f"Election Results: {election_results}")
         winner, round_number = election_results
+        winner = resolve_tiebreaker(
+            election_candidates, election_votes) if winner == "tied" else winner
         query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
             winner=winner,
             round_number=round_number
@@ -235,6 +237,8 @@ class ElectionDatabase:
                 election_candidates, election_votes)
             logging.debug(f"Election Results: {election_results}")
             winner, round_number = election_results
+            winner = resolve_tiebreaker(
+                election_candidates, election_votes) if winner == "tied" else winner
             query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
                 winner=winner,
                 round_number=round_number
