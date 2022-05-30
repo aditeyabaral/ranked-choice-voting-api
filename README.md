@@ -3,6 +3,26 @@ Simple API for [ranked-choice voting](https://www.rankedvote.co/guides/understan
 
 Ranked-voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.
 
+## How does Ranked-Choice Voting Work?
+
+```mermaid
+graph TD
+    A[Each voter ranks all candidates in order of preference] --> |Round r = 1 begins| B[Tally all first choices of all voters]
+    B --> C{Does first choice have<br>simple majority?}
+    C --> |Yes| D[First choice wins]
+    C --> |No| E{Do all candidates share<br>the highest tallied vote?}
+    E --> |No| F[Remove candidate with least votes]
+    E --> |Tie-breaker needed| H["For each candidate ranked by a voter,<br>give them a score of (number of candidates - position on voter's list)"]
+    H --> I["Tally aggregated scores of each candidate<br>and find the highest scoring candidate(s)"]
+    I --> J{Do multiple candidates share<br>the same highest score?}
+    J --> |Yes| K[Return any of the highest scoring candidates]
+    J --> |No| L[Highest scoring candidate wins]
+    F --> G[Move votes of supporters of the eliminated candidate<br>to their second choice candidate]
+    G --> |Round r = r + 1 begins| B
+```
+
+If the above flowchart does not render, visit this [link](https://mermaid.live/view#pako:eNp9VE1z2jAU_CtvdGk6hUOvTJtOEyCEfhxSLh2bg7Ae9mssySPJdBjgv_dJhthkJuXgMfK-3fWu5IMorEIxEaWTTQWraW6Af1-zmSwq2NmADpw0zx5kXUMhjSIlA3ogA9Ypfmq30DjcokNT4BrG41s4PtnWKHDwGT7CBksy_gh32Yop9olnS84HKCpLBVMxQ1xMYn7dGbhLRPeHqWXAEA6V3OGnjbv1pJsaQcs_1lHYfzl1g_edg9_IktNsPpz8yz7WV6if9ggz1nj9cr6SLomEigWprJBZAoMIVfJ5UZv1PPPsCbXdYc_DgqGCGiUPx6GL-HloRTjeOJTPHKJBVKiOsMhyMbcOMKbfE8UGWHnD6XUxjaK5kliNHWpe9YV1GJO8Ma3edLUMXmgMjfUUyHJrpqN456EmH97n4mxrkWw9soNzUWXpsORx1bGnoq6NRRd8zwXxZZhVHCBT9sgb3ws9JqFlzF23daBY41vhe6mvWV-iXw6K_sbZh9YZkGYfXf7XyqWGZd_d92zxFnq4a-Zp4iH7EWtOjUYx3zaNdXHvXqSxJk0mJXcVVbDxMTnwWFhO7LwvXzBnmYfXh8jBh-FB6lDxKkZCo9OSFJ_gQ1zJRdwQmIsJ3yrcSg44F7k5MbRtoshMUbBOTIJrcSRkG-yvvSku_zvMlCR_D3S3ePoHL9pnVg) to view the flowchart. You can also view it [here](/img/ranked-choice-voting-algorithm.jpg).
+
 # How to use ranked-voting
 
 ## Create an Election
@@ -87,7 +107,7 @@ You can remove your vote by sending a `GET` request to the `/unvote/ELECTION_ID`
 curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTION_ID'
 ```
 
-# How to setup ranked-voting
+# How to setup the ranked-voting app
 
 1. Clone the repository and navigate to the root directory
     ```bash
