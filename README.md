@@ -115,9 +115,9 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTIO
 
 The easiest way to setup the app is to use Docker-Compose. Navigate to the `docker/` directory and run the following command:
     
-    ```bash
-    docker-compose --project-name ranked-choice-voting up -d
-    ```
+   ```bash
+   docker-compose --project-name ranked-choice-voting up -d
+   ```
 
 ## Using a Python Environment
 
