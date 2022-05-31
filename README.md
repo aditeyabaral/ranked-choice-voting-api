@@ -111,29 +111,35 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTIO
 
 # How to setup the ranked-voting app
 
-1. Clone the repository and navigate to the root directory
+## Using Docker-Compose
+
+The easiest way to setup the app is to use Docker-Compose. Navigate to the `docker/` directory and run the following command:
+    
     ```bash
-    git clone https://github.com/aditeyabaral/ranked-voting
-    cd ranked-voting
+    docker-compose --project-name ranked-choice-voting up -d
     ```
 
-2. Create a new Python3 environment and activate it
+## Using a Python Environment
+
+Alternatively, you can also use the following commands to setup the app:
+
+1. Create a new Python3 environment and activate it
     ```bash
     virutalenv ranked-voting
     source ranked-voting/bin/activate
     ```
 
-3. Install the requirements
+2. Install the requirements
     ```bash
     pip install -r requirements.txt
     ```
 
-4. Create a `.env` file and add a database connection URL
+3. Modify the `.env` file and add your database connection URL. For example, if you have setup PostgreSQL locally, you can use the following:
     ```bash
-    APP_DATABASE_URL="<YOUR-DATABASE-URL>"
+    APP_DATABASE_URL=postgresql://user:password@localhost:5432/db_name
     ```
 
-5. Run the app
+4. Run the app
     ```bash
     python3 app/app.py
     ```
