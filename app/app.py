@@ -35,10 +35,12 @@ def get_election_data_post(request):
     end_time = request.json.get('end_time', None)
     description = request.json.get('description', None)
     anonymous = request.json.get('anonymous', False)
+    update_votes = request.json.get('update_votes', True)
+    allow_ties = request.json.get('allow_ties', False)
     candidates = request.json.get('candidates', None)
     if len(candidates) != len(set(candidates)):
         raise Exception("Candidates must be unique")
-    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates
+    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, update_votes, allow_ties, candidates
 
 
 def get_election_data_get(request):
@@ -51,10 +53,12 @@ def get_election_data_get(request):
     end_time = None
     description = None
     anonymous = False
+    update_votes = True
+    allow_ties = False
     candidates = request.view_args.get('candidates', None).split('/')
     if len(candidates) != len(set(candidates)):
         raise Exception("Candidates must be unique")
-    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates
+    return election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, update_votes, allow_ties, candidates
 
 
 def convert_readme_to_html():
@@ -87,7 +91,7 @@ def create_election(**candidates):
         request_parser = get_election_data_get
 
     try:
-        election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates = request_parser(
+        election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, update_votes, allow_ties, candidates = request_parser(
             request)
     except Exception as e:
         logging.error(f"Error in creating election - {request}: {e}")
@@ -107,6 +111,8 @@ def create_election(**candidates):
         'end_time': end_time,
         'description': description,
         'anonymous': anonymous,
+        'update_votes': update_votes,
+        'allow_ties': allow_ties,
         'candidates': candidates,
         'election_url': f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
     }
@@ -122,6 +128,8 @@ def create_election(**candidates):
             end_time,
             description,
             anonymous,
+            update_votes,
+            allow_ties,
             candidates
         )
         output = {

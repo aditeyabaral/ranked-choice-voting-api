@@ -6,9 +6,10 @@ import logging
 import datetime
 from dotenv import load_dotenv
 from sqlalchemy.orm import sessionmaker
+from election import get_election_results
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.ext.declarative import declarative_base
-from election import get_election_results, resolve_tiebreaker
+
 
 load_dotenv()
 IST = pytz.timezone("Asia/Kolkata")
@@ -55,7 +56,7 @@ class ElectionDatabase:
             if not self.check_election_id_exists(election_id):
                 return election_id
 
-    def add_election(self, election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates):
+    def add_election(self, election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, update_votes, allow_ties, candidates):
         candidates = list(map(str, candidates))
         candidates = json.dumps(candidates)
         query = self.election_table.insert().values(
@@ -67,6 +68,8 @@ class ElectionDatabase:
             end_time=end_time,
             description=description,
             anonymous=anonymous,
+            update_votes=update_votes,
+            allow_ties=allow_ties,
             candidates=candidates
         )
         self.connection.execute(query)
@@ -83,7 +86,7 @@ class ElectionDatabase:
         query = self.election_table.select().where(
             self.election_table.c.election_id == election_id)
         result = self.connection.execute(query).fetchall()[0]
-        election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, candidates, votes, round_number, winner = result
+        election_id, created_at, created_by, election_name, start_time, end_time, description, anonymous, update_votes, allow_ties, candidates, votes, round_number, winner = result
         candidates = json.loads(candidates)
         votes = json.loads(votes) if votes is not None else votes
         created_at = datetime.datetime.strftime(
@@ -100,6 +103,8 @@ class ElectionDatabase:
             "end_time": end_time,
             "description": description,
             "anonymous": anonymous,
+            "update_votes": update_votes,
+            "allow_ties": allow_ties,
             "candidates": candidates,
             "votes": votes,
             "round_number": round_number,
@@ -129,9 +134,25 @@ class ElectionDatabase:
         end_time = IST.localize(end_time) if end_time is not None else end_time
         return start_time, end_time
 
+    def check_election_update_votes(self, election_id):
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
+        result = self.connection.execute(query).fetchall()[0]
+        update_votes = result[-6]
+        return update_votes
+
+    def check_election_allow_ties(self, election_id):
+        query = self.election_table.select().where(
+            self.election_table.c.election_id == election_id)
+        result = self.connection.execute(query).fetchall()[0]
+        allow_ties = result[-5]
+        return allow_ties
+
     def add_vote(self, election_id, voter_ip, votes):
         current_time = datetime.datetime.now(IST)
         election_votes = self.get_election_votes(election_id)
+        election_update_votes = self.check_election_update_votes(election_id)
+        election_allow_ties = self.check_election_allow_ties(election_id)
         election_candidates = self.get_election_candidates(election_id)
         election_candidates_string = ", ".join(election_candidates)
         election_start_time, election_end_time = self.get_election_time(
@@ -156,10 +177,10 @@ class ElectionDatabase:
             raise Exception(
                 f"Invalid candidates. Valid candidates are: {election_candidates_string}")
 
-        # check if voter has already voted -> prevent voter from updating votes
-        # if election_votes is not None and voter_ip in election_votes:
-        #     logging.error(f"Voter {voter_ip} has already voted")
-        #     raise Exception(f"Voter {voter_ip} has already voted")
+        # check if voter has already voted to prevent voter from updating votes
+        if election_votes is not None and voter_ip in election_votes and not election_update_votes:
+            logging.error(f"Voter {voter_ip} has already voted. Votes cannot be updated.")
+            raise Exception(f"Voter {voter_ip} has already voted. You cannot update your vote.")
 
         # add vote
         if election_votes is None:
@@ -178,12 +199,9 @@ class ElectionDatabase:
         self.connection.execute(query)
 
         # calculate new winner
-        election_results = get_election_results(
-            election_candidates, election_votes)
+        election_results = get_election_results(election_candidates, election_votes, election_allow_ties)
         logging.debug(f"Election Results: {election_results}")
         winner, round_number = election_results
-        winner = resolve_tiebreaker(
-            election_candidates, election_votes) if winner == "tied" else winner
         query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
             winner=winner,
             round_number=round_number
@@ -193,9 +211,16 @@ class ElectionDatabase:
     def remove_vote(self, election_id, voter_ip):
         current_time = datetime.datetime.now(IST)
         election_votes = self.get_election_votes(election_id)
+        election_update_votes = self.check_election_update_votes(election_id)
+        election_allow_ties = self.check_election_allow_ties(election_id)
         election_candidates = self.get_election_candidates(election_id)
         election_start_time, election_end_time = self.get_election_time(
             election_id)
+
+        # check if votes can be removed
+        if not election_update_votes:
+            logging.error(f"Voter {voter_ip} cannot remove vote. Votes cannot be updated.")
+            raise Exception("Votes cannot be removed. Updating votes is disabled.")
 
         # check if election has not started
         if current_time < election_start_time:
@@ -233,12 +258,9 @@ class ElectionDatabase:
 
         # calculate new winner
         if election_votes is not None:
-            election_results = get_election_results(
-                election_candidates, election_votes)
+            election_results = get_election_results(election_candidates, election_votes, election_allow_ties)
             logging.debug(f"Election Results: {election_results}")
             winner, round_number = election_results
-            winner = resolve_tiebreaker(
-                election_candidates, election_votes) if winner == "tied" else winner
             query = self.election_table.update().where(self.election_table.c.election_id == election_id).values(
                 winner=winner,
                 round_number=round_number

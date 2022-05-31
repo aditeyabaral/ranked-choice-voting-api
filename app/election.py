@@ -25,7 +25,7 @@ def resolve_tiebreaker(candidates, votes):
     return max_score_candidates[0]
 
 
-def get_election_results(candidates, votes, majority_threshold=None, round=1):
+def ranked_choice_voting(candidates, votes, majority_threshold=None, round=1):
     votes = copy.deepcopy(votes)
     candidates = copy.deepcopy(candidates)
     logging.debug(f"Round: {round}")
@@ -74,4 +74,11 @@ def get_election_results(candidates, votes, majority_threshold=None, round=1):
     logging.debug(f"New votes for next round: {votes}")
 
     # recurse
-    return get_election_results(candidates, votes, majority_threshold, round+1)
+    return ranked_choice_voting(candidates, votes, majority_threshold, round+1)
+
+
+def get_election_results(candidates, votes, allow_ties=False):
+    winner, round = ranked_choice_voting(candidates, votes)
+    if not allow_ties and winner == "tied":
+        winner = resolve_tiebreaker(candidates, votes)
+    return winner, round

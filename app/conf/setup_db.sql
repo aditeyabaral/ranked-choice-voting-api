@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS ELECTION(
     end_time TIMESTAMP,
     description VARCHAR,
     anonymous BOOLEAN NOT NULL DEFAULT FALSE,
+    update_votes BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_ties BOOLEAN NOT NULL DEFAULT FALSE,
     candidates VARCHAR NOT NULL,
     votes VARCHAR,
     round_number INTEGER,

@@ -21,7 +21,7 @@ graph TD
     G --> |Round r = r + 1 begins| B
 ```
 
-If the above flowchart does not render, visit this [link](https://mermaid.live/view#pako:eNp9VE1z2jAU_CtvdGk6hUOvTJtOEyCEfhxSLh2bg7Ae9mssySPJdBjgv_dJhthkJuXgMfK-3fWu5IMorEIxEaWTTQWraW6Af1-zmSwq2NmADpw0zx5kXUMhjSIlA3ogA9Ypfmq30DjcokNT4BrG41s4PtnWKHDwGT7CBksy_gh32Yop9olnS84HKCpLBVMxQ1xMYn7dGbhLRPeHqWXAEA6V3OGnjbv1pJsaQcs_1lHYfzl1g_edg9_IktNsPpz8yz7WV6if9ggz1nj9cr6SLomEigWprJBZAoMIVfJ5UZv1PPPsCbXdYc_DgqGCGiUPx6GL-HloRTjeOJTPHKJBVKiOsMhyMbcOMKbfE8UGWHnD6XUxjaK5kliNHWpe9YV1GJO8Ma3edLUMXmgMjfUUyHJrpqN456EmH97n4mxrkWw9soNzUWXpsORx1bGnoq6NRRd8zwXxZZhVHCBT9sgb3ws9JqFlzF23daBY41vhe6mvWV-iXw6K_sbZh9YZkGYfXf7XyqWGZd_d92zxFnq4a-Zp4iH7EWtOjUYx3zaNdXHvXqSxJk0mJXcVVbDxMTnwWFhO7LwvXzBnmYfXh8jBh-FB6lDxKkZCo9OSFJ_gQ1zJRdwQmIsJ3yrcSg44F7k5MbRtoshMUbBOTIJrcSRkG-yvvSku_zvMlCR_D3S3ePoHL9pnVg) to view the flowchart. You can also view it [here](/img/ranked-choice-voting-algorithm.jpg).
+If the above flowchart does not render, visit this [link](https://mermaid.live/view#pako:eNp9VE1z2jAU_CtvdGk6hUOvTJtOEyCEfhxSLh2bg7Ae9mssySPJdBjgv_dJhthkJuXgMfK-3fWu5IMorEIxEaWTTQWraW6Af1-zmSwq2NmADpw0zx5kXUMhjSIlA3ogA9Ypfmq30DjcokNT4BrG41s4PtnWKHDwGT7CBksy_gh32Yop9olnS84HKCpLBVMxQ1xMYn7dGbhLRPeHqWXAEA6V3OGnjbv1pJsaQcs_1lHYfzl1g_edg9_IktNsPpz8yz7WV6if9ggz1nj9cr6SLomEigWprJBZAoMIVfJ5UZv1PPPsCbXdYc_DgqGCGiUPx6GL-HloRTjeOJTPHKJBVKiOsMhyMbcOMKbfE8UGWHnD6XUxjaK5kliNHWpe9YV1GJO8Ma3edLUMXmgMjfUUyHJrpqN456EmH97n4mxrkWw9soNzUWXpsORx1bGnoq6NRRd8zwXxZZhVHCBT9sgb3ws9JqFlzF23daBY41vhe6mvWV-iXw6K_sbZh9YZkGYfXf7XyqWGZd_d92zxFnq4a-Zp4iH7EWtOjUYx3zaNdXHvXqSxJk0mJXcVVbDxMTnwWFhO7LwvXzBnmYfXh8jBh-FB6lDxKkZCo9OSFJ_gQ1zJRdwQmIsJ3yrcSg44F7k5MbRtoshMUbBOTIJrcSRkG-yvvSku_zvMlCR_D3S3ePoHL9pnVg) to view the flowchart. You can also view it [here](https://raw.githubusercontent.com/aditeyabaral/ranked-voting/main/img/ranked-choice-voting-algorithm.jpg).
 
 # How to use ranked-voting
 
@@ -50,7 +50,9 @@ The request body is a JSON object with the following fields:
     "start_time": {OPTIONAL} when does the election start?
     "end_time": {OPTIONAL} when does the election end?
     "description": {OPTIONAL} A short description of your election
-    "anonymous": {OPTIONAL} true or false
+    "anonymous": {OPTIONAL} true or false, whether the votes should be anonymous
+    "update_votes": {OPTIONAL} true or false, whether a voter can update or remove their votes
+    "allow_ties": {OPTIONAL} true or false, whether ties are allowed in the election
     "candidates": ["candidate-1", "candidate-2", ...]
 }
 ```
@@ -148,7 +150,11 @@ The app uses IP addresses to track different users. This is used to map a user t
 
 ### Can I update my vote?
 
-By default, the app will update a user's vote if they attempt to vote again. You can change this behaviour in the `app/db.py` file to instead throw an error, or any other custom behaviour.
+This behaviour depends on the `update_votes` field. If this field is set to `True`, then you can update or remove your vote from the election.
+
+### Can I update my election details?
+
+This currently is not supported. If you would like to update your election details, please contact the administrators.
 
 ### What data is being collected from me?
 
