@@ -135,3 +135,27 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTIO
     ```bash
     python3 app/app.py
     ```
+
+# FAQs
+
+### Who can see my election?
+
+Anyone you wish to share the `election_id` with can view your election and cast their votes. Additionally, if the `anonymous` field is set to `False`, then anyone with the `election_id` can view your election results as well. Otherwise, only the person who created the election can view the results.
+
+### How does the app track different users?
+
+The app uses IP addresses to track different users. This is used to map a user to their vote, and is used to update votes (or prevent multiple votes). Everytime you create an election or add a vote, your IP address is recorded and used to identify you.
+
+### Can I update my vote?
+
+By default, the app will update a user's vote if they attempt to vote again. You can change this behaviour in the `app/db.py` file to instead throw an error, or any other custom behaviour.
+
+### What data is being collected from me?
+
+No data is being collected from you, except for your IP address. This is used to identify you and to prevent multiple votes.
+
+### Can the API be linked with an automated system like a bot?
+
+No, the API cannot be *completely* linked with a bot. This is because the API uses IP addresses to identify users. If a bot sends requests to the API, it will always be treated as the same user (with the bot's IP address), and hence there will always be one voter, regardless of the number of people casting the vote thorugh the bot.
+
+However, the bot can be used to create elections, view election results, and construct a URL for a user to click and vote.
