@@ -21,7 +21,10 @@ def resolve_tiebreaker(candidates, votes):
 
     # Return candidate with max score (if tied again, return first candidate)
     max_score_candidates = [
-        candidate for candidate in candidate_scores if candidate_scores[candidate] == max_candidate_score]
+        candidate
+        for candidate in candidate_scores
+        if candidate_scores[candidate] == max_candidate_score
+    ]
     return max_score_candidates[0]
 
 
@@ -49,7 +52,10 @@ def ranked_choice_voting(candidates, votes, majority_threshold=None, round=1):
     logging.debug(f"First choice frequencies: {first_choice_frequencies}")
 
     # check if candidates have same number of votes
-    if len(set(first_choice_frequencies.values())) == 1 and len(first_choice_frequencies) > 1:
+    if (
+        len(set(first_choice_frequencies.values())) == 1
+        and len(first_choice_frequencies) > 1
+    ):
         logging.debug("Tiebreaker needed")
         return "tied", round
 
@@ -74,7 +80,7 @@ def ranked_choice_voting(candidates, votes, majority_threshold=None, round=1):
     logging.debug(f"New votes for next round: {votes}")
 
     # recurse
-    return ranked_choice_voting(candidates, votes, majority_threshold, round+1)
+    return ranked_choice_voting(candidates, votes, majority_threshold, round + 1)
 
 
 def get_election_results(candidates, votes, allow_ties=False):
