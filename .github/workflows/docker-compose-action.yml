@@ -7,6 +7,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: Build
         working-directory: ./docker
-        run: docker-compose --project-name ranked-choice-voting up -d
+        run: docker-compose -f ./docker/docker-compose.yml --project-name ranked-choice-voting-api up -d
       - name: Test
         run: docker run --network container:flask appropriate/curl -s --retry 10 --retry-connrefused http://localhost:5000/
