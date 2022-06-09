@@ -3,7 +3,7 @@ Simple API for [ranked-choice voting](https://www.rankedvote.co/guides/understan
 
 Ranked-choice Voting is a Flask app that serves API endpoints for a ranked-choice voting, supporting both creation of elections, retrieval of results and casting of votes using HTTP requests.
 
-## How does Ranked-Choice Voting Work?
+# How does Ranked-Choice Voting Work?
 
 ```mermaid
 graph TD
@@ -70,6 +70,15 @@ curl --location --request POST 'https://ranked-voter.herokuapp.com/add' \
 
 Once you create an election, you will be shown the `ELECTION_ID`. Remember to use this ID when casting your votes and to access results.
 
+### Response Format
+
+| Field   	| Description                                                                      	|
+|---------	|----------------------------------------------------------------------------------	|
+| `status`  	| A boolean indicating whether the request succeeded or failed                 	|
+| `message` 	| A feedback on the action that was requested                                      	|
+| `data`    	| A key-value map of your election's configuration, returned only if `status` returns `true`   	|
+| `error`   	| The exception that occurred at the server, returned only if `status` returns false 	|
+
 ## Retrieve Results
 
 You can view your election results by sending a `GET` request to the `/ELECTION_ID` endpoint.
@@ -81,6 +90,15 @@ An example is provided below:
 curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
 ```
 
+### Response Format
+
+| Field   	| Description                                                                      	|
+|---------	|----------------------------------------------------------------------------------	|
+| `status`  	| A boolean indicating whether the request succeeded or failed                 	|
+| `message` 	| A feedback on the action that was requested                                      	|
+| `data`    	| A key-value map of your election's data including configuration and votes cast, returned only if `status` returns `true`   	|
+| `error`   	| The exception that occurred at the server, returned only if `status` returns false 	|
+
 ## Remove an Election
 
 You can remove an election by sending a `GET` request to the `/vote/ELECTION_ID` endpoint. Note that this action is irreversible and can only be performed by the person who created the election.
@@ -88,6 +106,15 @@ You can remove an election by sending a `GET` request to the `/vote/ELECTION_ID`
 ```bash
 curl --location --request GET 'https://ranked-voter.herokuapp.com/remove/ELECTION_ID'
 ```
+
+### Response Format
+
+| Field   	| Description                                                                      	|
+|---------	|----------------------------------------------------------------------------------	|
+| `status`  	| A boolean indicating whether the request succeeded or failed                 	|
+| `message` 	| A feedback on the action that was requested                                      	|
+| `data`    	| A key-value map of your election's data including configuration and votes cast, returned only if `status` returns `true`   	|
+| `error`   	| The exception that occurred at the server, returned only if `status` returns false 	|
 
 ## Cast your votes
 
@@ -99,6 +126,14 @@ An example is provided below:
 curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_ID/pancakes/icecream/waffles'
 ```
 
+### Response Format
+
+| Field   	| Description                                                                      	|
+|---------	|----------------------------------------------------------------------------------	|
+| `status`  	| A boolean indicating whether the request succeeded or failed                 	|
+| `message` 	| A feedback on the action that was requested                                      	|
+| `error`   	| The exception that occurred at the server, returned only if `status` returns `false` 	|
+
 ## Remove your vote
 
 You can remove your vote by sending a `GET` request to the `/unvote/ELECTION_ID` endpoint. Note that this action will remove only your vote, not all votes.
@@ -106,6 +141,14 @@ You can remove your vote by sending a `GET` request to the `/unvote/ELECTION_ID`
 ```bash
 curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTION_ID'
 ```
+
+### Response Format
+
+| Field   	| Description                                                                      	|
+|---------	|----------------------------------------------------------------------------------	|
+| `status`  	| A boolean indicating whether the request succeeded or failed                 	|
+| `message` 	| A feedback on the action that was requested                                      	|
+| `error`   	| The exception that occurred at the server, returned only if `status` returns `false` 	|
 
 # How to setup the app
 
