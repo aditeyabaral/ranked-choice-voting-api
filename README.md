@@ -68,8 +68,6 @@ curl --location --request POST 'https://ranked-voter.herokuapp.com/add' \
 }'
 ```
 
-Once you create an election, you will be shown the `ELECTION_ID`. Remember to use this ID when casting your votes and to access results.
-
 ### Response Format
 
 | Field   	| Description                                                                      	|
@@ -79,15 +77,17 @@ Once you create an election, you will be shown the `ELECTION_ID`. Remember to us
 | `data`    	| A key-value map of your election's configuration, returned only if `status` returns `true`   	|
 | `error`   	| The exception that occurred at the server, returned only if `status` returns false 	|
 
+If your election creation request is successful, you will be able to access your election's `election_id` stored in the `data` field. Remember to use this ID when casting your votes and to access results.
+
 ## Retrieve Results
 
-You can view your election results by sending a `GET` request to the `/ELECTION_ID` endpoint.
+You can view your election results by sending a `GET` request to the `/election_id` endpoint.
 
 An example is provided below:
 
 
 ```bash
-curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
+curl --location --request GET 'https://ranked-voter.herokuapp.com/election_id'
 ```
 
 ### Response Format
@@ -101,10 +101,10 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/ELECTION_ID'
 
 ## Remove an Election
 
-You can remove an election by sending a `GET` request to the `/vote/ELECTION_ID` endpoint. Note that this action is irreversible and can only be performed by the person who created the election.
+You can remove an election by sending a `GET` request to the `/vote/election_id` endpoint. Note that this action is irreversible and can only be performed by the person who created the election.
 
 ```bash
-curl --location --request GET 'https://ranked-voter.herokuapp.com/remove/ELECTION_ID'
+curl --location --request GET 'https://ranked-voter.herokuapp.com/remove/election_id'
 ```
 
 ### Response Format
@@ -118,12 +118,12 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/remove/ELECTIO
 
 ## Cast your votes
 
-You can cast your votes by sending a `GET` request to the `vote/ELECTION_ID` endpoint. Append the URL with the ordered candidates, separated with a ```/```. Remember to include all the candidates since this is a ranked-choice voting.
+You can cast your votes by sending a `GET` request to the `vote/election_id` endpoint. Append the URL with the ordered candidates, separated with a ```/```. Remember to include all the candidates since this is a ranked-choice voting.
 
 An example is provided below:
 
 ```bash
-curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_ID/pancakes/icecream/waffles'
+curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/election_id/pancakes/icecream/waffles'
 ```
 
 ### Response Format
@@ -136,10 +136,10 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/vote/ELECTION_
 
 ## Remove your vote
 
-You can remove your vote by sending a `GET` request to the `/unvote/ELECTION_ID` endpoint. Note that this action will remove only your vote, not all votes.
+You can remove your vote by sending a `GET` request to the `/unvote/election_id` endpoint. Note that this action will remove only your vote, not all votes.
 
 ```bash
-curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/ELECTION_ID'
+curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/election_id'
 ```
 
 ### Response Format
