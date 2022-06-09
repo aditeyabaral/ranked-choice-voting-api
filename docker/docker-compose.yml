@@ -6,6 +6,8 @@ services:
     ports:
       - "5000:5000"
     container_name: flask
+    depends_on:
+      - postgres
     links:
       - postgres
   postgres:
