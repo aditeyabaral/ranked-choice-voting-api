@@ -43,19 +43,17 @@ You can also create an election by sending a `POST` request. This is the most fl
 
 The request body is a JSON object with the following fields:
 
-```json
-{
-    "election_id": {OPTIONAL} A custom ID for the election. If not provided, a random ID will be generated.
-    "election_name": {OPTIONAL} The name of your election
-    "start_time": {OPTIONAL} when does the election start?
-    "end_time": {OPTIONAL} when does the election end?
-    "description": {OPTIONAL} A short description of your election
-    "anonymous": {OPTIONAL} true or false, whether the votes should be anonymous
-    "update_votes": {OPTIONAL} true or false, whether a voter can update or remove their votes
-    "allow_ties": {OPTIONAL} true or false, whether ties are allowed in the election
-    "candidates": ["candidate-1", "candidate-2", ...]
-}
-```
+| Field         	| Optional 	| Default      	| Description                                                                                       	|
+|---------------	|----------	|--------------	|---------------------------------------------------------------------------------------------------	|
+| `election_id`   	| Yes      	| Random       	| A custom ID for your election                                                                     	|
+| `election_name` 	| Yes      	| NULL         	| The name of your election                                                                         	|
+| `start_time`    	| Yes      	| Current time 	| The timestamp at which your election starts. Votes made only after the start time will be counted 	|
+| `end_time`      	| Yes      	| NULL         	| The timestamp at which your election ends. Votes made only before the end time will be counted    	|
+| `description`   	| Yes      	| NULL         	| A short description about your election                                                           	|
+| `anonymous`     	| Yes      	| False        	| A boolean value indicating whether votes cast in your election are publicly viewable              	|
+| `update_votes`  	| Yes      	| True         	| A boolean value indicating whether a voter can update or delete their vote                        	|
+| `allow_ties`    	| Yes      	| False        	| A boolean value indicating whether your election can have a tied winner                           	|
+| `candidates`    	| No       	| -            	| A list of unique strings where each element represents a candidate                                	|
 
 An example is provided below:
 
