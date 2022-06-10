@@ -1,11 +1,13 @@
 name: Docker-Compose Actions Workflow
+
 on: [push, pull_request]
+
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Build
-        run: docker-compose -f ./docker/docker-compose.yml --project-name ranked-choice-voting-api up -d
-      - name: Test
+        run: docker-compose --project-name ranked-choice-voting-api up -d
+      - name: Test Connection
         run: docker run --network container:flask appropriate/curl -s --retry 10 --retry-connrefused http://localhost:5000/
