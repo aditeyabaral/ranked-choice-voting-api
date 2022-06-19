@@ -170,9 +170,8 @@ def create_election(**candidates):
         duplicate_exists, duplicate_id = election_db.check_duplicate_election(created_by, candidates)
         if duplicate_exists:
             output = {
-                "status": True, 
-                "message": f"A similar election with ID {duplicate_id} is already running!",
-                "data": {}
+                "status": False, 
+                "message": f"A similar election with ID {duplicate_id} is already running!"
             }
             response_code = 409
         else:
