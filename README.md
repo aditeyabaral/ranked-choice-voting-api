@@ -48,7 +48,7 @@ The request body is a JSON object with the following fields:
 | `election_id`   	| Yes      	| Random       	| A custom ID for your election                                                                     	|
 | `election_name` 	| Yes      	| NULL         	| The name of your election                                                                         	|
 | `start_time`    	| Yes      	| Current time 	| The timestamp at which your election starts. Votes made only after the start time will be counted 	|
-| `end_time`      	| Yes      	| NULL         	| The timestamp at which your election ends. Votes made only before the end time will be counted    	|
+| `end_time`      	| Yes      	| NULL         	| The timestamp at which your election ends. Votes made only before the end time will be counted. By default, this is 7 days after the start time    	|
 | `description`   	| Yes      	| NULL         	| A short description about your election                                                           	|
 | `anonymous`     	| Yes      	| False        	| A boolean value indicating whether votes cast in your election are publicly viewable              	|
 | `update_votes`  	| Yes      	| True         	| A boolean value indicating whether a voter can update or delete their vote                        	|
