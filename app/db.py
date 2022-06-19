@@ -93,7 +93,7 @@ class ElectionDatabase:
         )
         self.connection.execute(query)
 
-    def get_election_data(self, election_id):
+    def get_election_data_by_id(self, election_id):
         query = self.election_table.select().where(
             self.election_table.c.election_id == election_id
         )
@@ -135,6 +135,44 @@ class ElectionDatabase:
             "round_number": round_number,
             "winner": winner,
         }
+    
+    def get_election_data_by_creator(self, created_by):
+        query = self.election_table.select().where(
+            self.election_table.c.created_by == created_by
+        )
+        all_elections = self.connection.execute(query).fetchall()
+        elections = list()
+        for result in all_elections:
+            (
+                election_id,
+                created_at,
+                created_by,
+                _,
+                start_time,
+                end_time,
+                _,
+                _,
+                _,
+                _,
+                candidates,
+                _,
+                _,
+                _,
+            ) = result
+            candidates = json.loads(candidates)
+            created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
+            start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
+            end_time = str(end_time) if end_time is not None else end_time
+            rv = {
+                "election_id": election_id,
+                "created_at": created_at,
+                "created_by": created_by,
+                "start_time": start_time,
+                "end_time": end_time,
+                "candidates": candidates,
+            }
+            elections.append(rv)
+        return elections
 
     def get_election_votes(self, election_id):
         query = self.election_table.select().where(

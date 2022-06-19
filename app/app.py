@@ -37,7 +37,8 @@ def get_election_data_post(request):
     )
     election_name = request.json.get("election_name", None)
     start_time = request.json.get("start_time", created_at)
-    end_time = request.json.get("end_time", None)
+    end_time = request.json.get(
+        "end_time", start_time + datetime.timedelta(days=7))
     description = request.json.get("description", None)
     anonymous = request.json.get("anonymous", False)
     update_votes = request.json.get("update_votes", True)
@@ -70,7 +71,7 @@ def get_election_data_get(request):
     )
     election_name = None
     start_time = created_at
-    end_time = None
+    end_time = start_time + datetime.timedelta(days=7)
     description = None
     anonymous = False
     update_votes = True
@@ -111,6 +112,10 @@ def index():
     except Exception as e:
         logging.error(f"Error rendering home page: {e}")
         return "Error occurred while retrieving home page", 500
+
+
+def check_duplicate_election(creator_ip_addr, candidates):
+    pass
 
 
 @app.route("/add", methods=["POST"])
@@ -162,25 +167,43 @@ def create_election(**candidates):
     logging.debug(f"Election creation data: {election_data}")
 
     try:
-        election_db.add_election(
-            election_id,
-            created_at,
-            created_by,
-            election_name,
-            start_time,
-            end_time,
-            description,
-            anonymous,
-            update_votes,
-            allow_ties,
-            candidates,
-        )
-        output = {
-            "status": True,
-            "message": "Election created successfully.",
-            "data": election_data,
-        }
-        response_code = 201
+        elections = election_db.get_election_data_by_creator(created_by)
+        duplicate_found = False
+        duplicate_id, duplicate_end_time = None, None
+        for election_info in elections:
+            if election_info['candidates'] == candidates:
+                duplicate_found = True
+                duplicate_id, duplicate_end_time = election_info['election_id'], election_info['end_time']
+                duplicate_end_time = datetime.datetime.strptime(
+                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f").astimezone(IST)
+                break
+        if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
+            output = {
+                "status": True,
+                "message": f"A similar election with id {duplicate_id} is already running!",
+                "data": election_info
+            }
+            response_code = 409
+        else:
+            election_db.add_election(
+                election_id,
+                created_at,
+                created_by,
+                election_name,
+                start_time,
+                end_time,
+                description,
+                anonymous,
+                update_votes,
+                allow_ties,
+                candidates,
+            )
+            output = {
+                "status": True,
+                "message": "Election created successfully.",
+                "data": election_data,
+            }
+            response_code = 201
     except Exception as e:
         logging.error(f"Exception while inserting new election: {e}")
         output = {
@@ -198,7 +221,8 @@ def remove_election(election_id):
         if not election_db.check_election_id_exists(election_id):
             raise Exception("Election ID does not exist")
     except Exception as e:
-        logging.error(f"Exception occurred while removing election {election_id}: {e}")
+        logging.error(
+            f"Exception occurred while removing election {election_id}: {e}")
         output = {
             "status": False,
             "message": f"Error occurred while removing election. This might also be due to an invalid election ID.",
@@ -216,7 +240,7 @@ def remove_election(election_id):
         f"Election removal request from {ip_address} for election {election_id}"
     )
     try:
-        election_data = election_db.get_election_data(election_id)
+        election_data = election_db.get_election_data_by_id(election_id)
         election_db.remove_election(election_id, ip_address)
         output["status"] = True
         output["message"] = f"Election {election_id} removed successfully"
@@ -250,7 +274,7 @@ def election_page(election_id):
         return jsonify(output), 400
 
     try:
-        election_data = election_db.get_election_data(election_id)
+        election_data = election_db.get_election_data_by_id(election_id)
         logging.debug(f"Election data fetched: {election_data}")
         ip_address = (
             request.headers.getlist("X-Forwarded-For")[0]
@@ -284,7 +308,8 @@ def add_vote(election_id, votes):
         if not election_db.check_election_id_exists(election_id):
             raise Exception("Election ID does not exist")
     except Exception as e:
-        logging.error(f"Exception occurred while adding vote to {election_id}: {e}")
+        logging.error(
+            f"Exception occurred while adding vote to {election_id}: {e}")
         output = {
             "status": False,
             "message": f"Error occurred while adding vote. This might also be due to an invalid election ID.",
@@ -347,7 +372,8 @@ def remove_vote(election_id):
         if not election_db.check_election_id_exists(election_id):
             raise Exception("Election ID does not exist")
     except Exception as e:
-        logging.error(f"Exception occurred while removing vote from {election_id}: {e}")
+        logging.error(
+            f"Exception occurred while removing vote from {election_id}: {e}")
         output = {
             "status": False,
             "message": f"Error occurred while removing vote. This might also be due to an invalid election ID.",
