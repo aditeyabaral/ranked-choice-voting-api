@@ -144,35 +144,60 @@ class ElectionDatabase:
         elections = list()
         for result in all_elections:
             (
-                election_id,
-                created_at,
-                created_by,
-                _,
-                start_time,
-                end_time,
-                _,
-                _,
-                _,
-                _,
-                candidates,
-                _,
-                _,
-                _,
+            election_id,
+            created_at,
+            created_by,
+            election_name,
+            start_time,
+            end_time,
+            description,
+            anonymous,
+            update_votes,
+            allow_ties,
+            candidates,
+            votes,
+            round_number,
+            winner,
             ) = result
             candidates = json.loads(candidates)
+            votes = json.loads(votes) if votes is not None else votes
             created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
             start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
             end_time = str(end_time) if end_time is not None else end_time
-            rv = {
+            election = {
                 "election_id": election_id,
                 "created_at": created_at,
                 "created_by": created_by,
+                "election_name": election_name,
                 "start_time": start_time,
                 "end_time": end_time,
+                "description": description,
+                "anonymous": anonymous,
+                "update_votes": update_votes,
+                "allow_ties": allow_ties,
                 "candidates": candidates,
+                "votes": votes,
+                "round_number": round_number,
+                "winner": winner,
             }
-            elections.append(rv)
+            elections.append(election)
         return elections
+    
+    def check_duplicate_election(self, created_by, candidates):
+        elections = self.get_election_data_by_creator(created_by)
+        duplicate_found = False
+        duplicate_id, duplicate_end_time = None, None
+        for election_info in elections:
+            if election_info['candidates'] == candidates:
+                duplicate_found = True
+                duplicate_id, duplicate_end_time = election_info['election_id'], election_info['end_time']
+                duplicate_end_time = datetime.datetime.strptime(
+                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f").astimezone(IST)
+                break
+        if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
+            return True, election_info['election_id']
+        else:
+            return False, None
 
     def get_election_votes(self, election_id):
         query = self.election_table.select().where(

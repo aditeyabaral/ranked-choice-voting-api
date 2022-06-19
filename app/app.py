@@ -167,21 +167,12 @@ def create_election(**candidates):
     logging.debug(f"Election creation data: {election_data}")
 
     try:
-        elections = election_db.get_election_data_by_creator(created_by)
-        duplicate_found = False
-        duplicate_id, duplicate_end_time = None, None
-        for election_info in elections:
-            if election_info['candidates'] == candidates:
-                duplicate_found = True
-                duplicate_id, duplicate_end_time = election_info['election_id'], election_info['end_time']
-                duplicate_end_time = datetime.datetime.strptime(
-                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f").astimezone(IST)
-                break
-        if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
+        duplicate_exists, duplicate_id = election_db.check_duplicate_election(created_by, candidates)
+        if duplicate_exists:
             output = {
-                "status": True,
-                "message": f"A similar election with id {duplicate_id} is already running!",
-                "data": election_info
+                "status": True, 
+                "message": f"A similar election with ID {duplicate_id} is already running!",
+                "data": {}
             }
             response_code = 409
         else:
