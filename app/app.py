@@ -118,17 +118,17 @@ def update_election_with_new_data(new_election_data):
     
     start_time = current_election_data["start_time"]
     try:
-        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
-    except:
         start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+    except:
+        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
 
     end_time = current_election_data["end_time"]
     try:
-        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S.%f")
-    except:
         end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+    except:
+        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S.%f")
 
-    if start_time <= end_time:
+    if start_time >= end_time:
         end_time = start_time + datetime.timedelta(days=7)
 
     current_election_data["end_time"] = end_time
@@ -443,9 +443,22 @@ def remove_vote(election_id):
 def update_election():
     new_election_data = request.get_json()
     logging.debug(f"New election data: {new_election_data}")
+    output = dict()
     if new_election_data:
-        updated_election_data = update_election_with_new_data(new_election_data)
-    return jsonify(updated_election_data), 200
+        try:
+            updated_election_data = update_election_with_new_data(new_election_data)
+            output["status"] = True
+            output["message"] = "Election updated successfully."
+            output["data"] = updated_election_data
+            response_code = 200
+        except Exception as e:
+            logging.error(f"Exception occurred while updating election: {e}")
+            output["status"] = False
+            output["message"] = "Error occurred while updating election."
+            output["data"] = None
+            response_code = 400
+    
+    return jsonify(output), response_code
 
 
 
