@@ -136,7 +136,7 @@ class ElectionDatabase:
             "round_number": round_number,
             "winner": winner,
         }
-    
+
     def get_election_data_by_creator(self, created_by):
         query = self.election_table.select().where(
             self.election_table.c.created_by == created_by
@@ -145,20 +145,20 @@ class ElectionDatabase:
         elections = list()
         for result in all_elections:
             (
-            election_id,
-            created_at,
-            created_by,
-            election_name,
-            start_time,
-            end_time,
-            description,
-            anonymous,
-            update_votes,
-            allow_ties,
-            candidates,
-            votes,
-            round_number,
-            winner,
+                election_id,
+                created_at,
+                created_by,
+                election_name,
+                start_time,
+                end_time,
+                description,
+                anonymous,
+                update_votes,
+                allow_ties,
+                candidates,
+                votes,
+                round_number,
+                winner,
             ) = result
             candidates = json.loads(candidates)
             votes = json.loads(votes) if votes is not None else votes
@@ -183,20 +183,24 @@ class ElectionDatabase:
             }
             elections.append(election)
         return elections
-    
+
     def check_duplicate_election(self, created_by, candidates):
         elections = self.get_election_data_by_creator(created_by)
         duplicate_found = False
         duplicate_id, duplicate_end_time = None, None
         for election_info in elections:
-            if election_info['candidates'] == candidates:
+            if election_info["candidates"] == candidates:
                 duplicate_found = True
-                duplicate_id, duplicate_end_time = election_info['election_id'], election_info['end_time']
+                duplicate_id, duplicate_end_time = (
+                    election_info["election_id"],
+                    election_info["end_time"],
+                )
                 duplicate_end_time = datetime.datetime.strptime(
-                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f").astimezone(IST)
+                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f"
+                ).astimezone(IST)
                 break
         if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
-            return True, election_info['election_id']
+            return True, election_info["election_id"]
         else:
             return False, None
 
@@ -381,36 +385,40 @@ class ElectionDatabase:
                 .values(winner=winner, round_number=round_number)
             )
             self.connection.execute(query)
-    
+
     def get_election_data_by_id_and_creator(self, election_id, created_by):
-        query = (
-            self.election_table.select()
-            .where(and_(self.election_table.c.election_id == election_id, self.election_table.c.created_by == created_by))
+        query = self.election_table.select().where(
+            and_(
+                self.election_table.c.election_id == election_id,
+                self.election_table.c.created_by == created_by,
+            )
         )
 
         election_details = self.connection.execute(query).fetchall()
 
         if not election_details:
-            logging.error(f"Election {election_id} not found or creator {created_by} is not the creator of the election")
+            logging.error(
+                f"Election {election_id} not found or creator {created_by} is not the creator of the election"
+            )
             return None
-        
+
         election_details = election_details[0]
 
         (
-        election_id,
-        created_at,
-        created_by,
-        election_name,
-        start_time,
-        end_time,
-        description,
-        anonymous,
-        update_votes,
-        allow_ties,
-        candidates,
-        votes,
-        round_number,
-        winner,
+            election_id,
+            created_at,
+            created_by,
+            election_name,
+            start_time,
+            end_time,
+            description,
+            anonymous,
+            update_votes,
+            allow_ties,
+            candidates,
+            votes,
+            round_number,
+            winner,
         ) = election_details
         candidates = json.loads(candidates)
         votes = json.loads(votes) if votes is not None else votes
@@ -435,7 +443,7 @@ class ElectionDatabase:
         }
 
         return election
-    
+
     def update_election_details(self, election_details):
         election_id = election_details["election_id"]
         created_at = election_details["created_at"]
@@ -472,4 +480,3 @@ class ElectionDatabase:
             )
         )
         self.connection.execute(query)
-

@@ -150,6 +150,31 @@ curl --location --request GET 'https://ranked-voter.herokuapp.com/unvote/electio
 | `message`     | A feedback on the action that was requested                                       |
 | `error`       | The exception that occurred at the server, returned only if `status` returns `false`  |
 
+
+### Update your election
+
+You can update your election details by sending a `POST` request to the `/update` endpoint. Note that if the candidate list is updated, all votes will be reset.
+
+```bash
+curl --location --request POST 'https://ranked-voter.herokuapp.com/update' 
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "election_id": "election_id",
+    "candidates": ["pancakes", "doughnuts", "waffles"],
+    "anonymous": true
+}'
+```
+
+### Response Format
+
+| Field     | Description                                                                       |
+|---------  |---------------------------------------------------------------------------------- |
+| `status`      | A boolean indicating whether the request succeeded or failed                  |
+| `message`     | A feedback on the action that was requested                                       |
+| `data`        | A key-value map of your election's data including configuration and votes cast, returned only if `status` returns `true`      |
+| `error`       | The exception that occurred at the server, returned only if `status` returns false    |
+
+
 # How to set up the app
 
 ## Using Docker-Compose
