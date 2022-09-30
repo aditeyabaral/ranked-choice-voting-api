@@ -5,6 +5,7 @@ import uuid
 import logging
 import datetime
 from dotenv import load_dotenv
+from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from election import get_election_results
 from sqlalchemy import create_engine, MetaData, Table
@@ -380,3 +381,95 @@ class ElectionDatabase:
                 .values(winner=winner, round_number=round_number)
             )
             self.connection.execute(query)
+    
+    def get_election_data_by_id_and_creator(self, election_id, created_by):
+        query = (
+            self.election_table.select()
+            .where(and_(self.election_table.c.election_id == election_id, self.election_table.c.created_by == created_by))
+        )
+
+        election_details = self.connection.execute(query).fetchall()
+
+        if not election_details:
+            logging.error(f"Election {election_id} not found or creator {created_by} is not the creator of the election")
+            return None
+        
+        election_details = election_details[0]
+
+        (
+        election_id,
+        created_at,
+        created_by,
+        election_name,
+        start_time,
+        end_time,
+        description,
+        anonymous,
+        update_votes,
+        allow_ties,
+        candidates,
+        votes,
+        round_number,
+        winner,
+        ) = election_details
+        candidates = json.loads(candidates)
+        votes = json.loads(votes) if votes is not None else votes
+        created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
+        start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
+        end_time = str(end_time) if end_time is not None else end_time
+        election = {
+            "election_id": election_id,
+            "created_at": created_at,
+            "created_by": created_by,
+            "election_name": election_name,
+            "start_time": start_time,
+            "end_time": end_time,
+            "description": description,
+            "anonymous": anonymous,
+            "update_votes": update_votes,
+            "allow_ties": allow_ties,
+            "candidates": candidates,
+            "votes": votes,
+            "round_number": round_number,
+            "winner": winner,
+        }
+
+        return election
+    
+    def update_election_details(self, election_details):
+        election_id = election_details["election_id"]
+        created_at = election_details["created_at"]
+        created_by = election_details["created_by"]
+        election_name = election_details["election_name"]
+        start_time = election_details["start_time"]
+        end_time = election_details["end_time"]
+        description = election_details["description"]
+        anonymous = election_details["anonymous"]
+        update_votes = election_details["update_votes"]
+        allow_ties = election_details["allow_ties"]
+        candidates = election_details["candidates"]
+        votes = election_details["votes"]
+        round_number = election_details["round_number"]
+        winner = election_details["winner"]
+
+        query = (
+            self.election_table.update()
+            .where(self.election_table.c.election_id == election_id)
+            .values(
+                created_at=created_at,
+                created_by=created_by,
+                election_name=election_name,
+                start_time=start_time,
+                end_time=end_time,
+                description=description,
+                anonymous=anonymous,
+                update_votes=update_votes,
+                allow_ties=allow_ties,
+                candidates=json.dumps(candidates),
+                votes=json.dumps(votes),
+                round_number=round_number,
+                winner=winner,
+            )
+        )
+        self.connection.execute(query)
+
