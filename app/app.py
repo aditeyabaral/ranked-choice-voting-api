@@ -455,7 +455,6 @@ def update_election():
             logging.error(f"Exception occurred while updating election: {e}")
             output["status"] = False
             output["message"] = "Error occurred while updating election."
-            output["data"] = None
             response_code = 400
     
     return jsonify(output), response_code
