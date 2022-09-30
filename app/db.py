@@ -386,6 +386,7 @@ class ElectionDatabase:
             )
             self.connection.execute(query)
 
+
     def get_election_data_by_id_and_creator(self, election_id, created_by):
         query = self.election_table.select().where(
             and_(
