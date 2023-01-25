@@ -1,12 +1,12 @@
 import os
 import pytz
 import logging
-import datetime
 import gh_md_to_html
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 from flask import Flask, jsonify, request
 
+from parser import *
 from db import ElectionDatabase
 
 logging.basicConfig(
@@ -19,204 +19,6 @@ logging.basicConfig(
 load_dotenv()
 app = Flask(__name__)
 IST = pytz.timezone("Asia/Kolkata")
-
-
-def get_election_data_post(request):
-    election_id = request.json.get(
-        "election_id", election_db.generate_election_id(election_db)
-    )
-    if election_db.check_election_id_exists(election_id):
-        raise Exception(
-            "Election ID already exists. Please choose a different one or do not specify one."
-        )
-    created_at = datetime.datetime.now(IST)
-    created_by = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    election_name = request.json.get("election_name", None)
-    start_time = request.json.get("start_time", created_at)
-    end_time = request.json.get("end_time", start_time + datetime.timedelta(days=7))
-    description = request.json.get("description", None)
-    anonymous = request.json.get("anonymous", False)
-    update_votes = request.json.get("update_votes", True)
-    allow_ties = request.json.get("allow_ties", False)
-    candidates = request.json.get("candidates", None)
-    if len(candidates) != len(set(candidates)):
-        raise Exception("Candidates must be unique")
-    return (
-        election_id,
-        created_at,
-        created_by,
-        election_name,
-        start_time,
-        end_time,
-        description,
-        anonymous,
-        update_votes,
-        allow_ties,
-        candidates,
-    )
-
-
-def get_election_data_get(request):
-    election_id = election_db.generate_election_id(election_db)
-    created_at = datetime.datetime.now(IST)
-    created_by = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    election_name = None
-    start_time = created_at
-    end_time = start_time + datetime.timedelta(days=7)
-    description = None
-    anonymous = False
-    update_votes = True
-    allow_ties = False
-    candidates = request.view_args.get("candidates", None).split("/")
-    if len(candidates) != len(set(candidates)):
-        raise Exception("Candidates must be unique")
-    return (
-        election_id,
-        created_at,
-        created_by,
-        election_name,
-        start_time,
-        end_time,
-        description,
-        anonymous,
-        update_votes,
-        allow_ties,
-        candidates,
-    )
-
-
-def update_election_with_new_data(new_election_data):
-    election_id = new_election_data["election_id"]
-    created_by = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    current_election_data = election_db.get_election_data_by_id_and_creator(
-        election_id, created_by
-    )
-    for key in new_election_data:
-        if key in current_election_data:
-            if key == "candidates":
-                if set(current_election_data["candidates"]) != set(
-                    new_election_data["candidates"]
-                ):
-                    current_election_data["votes"] = None
-                    current_election_data["round_number"] = None
-                    current_election_data["winner"] = None
-                    current_election_data["candidates"] = new_election_data[
-                        "candidates"
-                    ]
-                    logging.warning(
-                        "Candidates changed. Resetting votes, round_number, winner"
-                    )
-            elif key in [
-                "election_id",
-                "created_at",
-                "created_by",
-                "votes",
-                "round_number",
-                "winner",
-            ]:
-                logging.warning(
-                    f"Attempt to update {key} not allowed for election {election_id}"
-                )
-                continue
-            else:
-                current_election_data[key] = new_election_data[key]
-
-    start_time = current_election_data["start_time"]
-    try:
-        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-    except:
-        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
-
-    end_time = current_election_data["end_time"]
-    try:
-        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-    except:
-        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S.%f")
-
-    if start_time >= end_time:
-        end_time = start_time + datetime.timedelta(days=7)
-
-    current_election_data["end_time"] = end_time
-    current_election_data["start_time"] = start_time
-
-    election_db.update_election_details(current_election_data)
-    logging.debug(f"Updated election {election_id} with new data")
-    return current_election_data
-
-
-def update_election_with_new_data(new_election_data):
-    election_id = new_election_data["election_id"]
-    created_by = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    current_election_data = election_db.get_election_data_by_id_and_creator(
-        election_id, created_by
-    )
-    for key in new_election_data:
-        if key in current_election_data:
-            if key == "candidates":
-                if set(current_election_data["candidates"]) != set(
-                    new_election_data["candidates"]
-                ):
-                    current_election_data["votes"] = None
-                    current_election_data["round_number"] = None
-                    current_election_data["winner"] = None
-                    current_election_data["candidates"] = new_election_data[
-                        "candidates"
-                    ]
-                    logging.warning(
-                        "Candidates changed. Resetting votes, round_number, winner"
-                    )
-            elif key in [
-                "election_id",
-                "created_at",
-                "created_by",
-                "votes",
-                "round_number",
-                "winner",
-            ]:
-                logging.warning(
-                    f"Attempt to update {key} not allowed for election {election_id}"
-                )
-                continue
-            else:
-                current_election_data[key] = new_election_data[key]
-
-    start_time = current_election_data["start_time"]
-    try:
-        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-    except:
-        start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
-
-    end_time = current_election_data["end_time"]
-    try:
-        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-    except:
-        end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S.%f")
-
-    if start_time >= end_time:
-        end_time = start_time + datetime.timedelta(days=7)
-
-    current_election_data["end_time"] = end_time
-    current_election_data["start_time"] = start_time
-
-    election_db.update_election_details(current_election_data)
-    logging.debug(f"Updated election {election_id} with new data")
-    return current_election_data
 
 
 def convert_readme_to_html():
@@ -239,10 +41,6 @@ def index():
         return "Error occurred while retrieving home page", 500
 
 
-def check_duplicate_election(creator_ip_addr, candidates):
-    pass
-
-
 @app.route("/add", methods=["POST"])
 @app.route("/add/<path:candidates>", methods=["GET"])
 def create_election(**candidates):
@@ -253,21 +51,10 @@ def create_election(**candidates):
         request_parser = get_election_data_get
 
     try:
-        (
-            election_id,
-            created_at,
-            created_by,
-            election_name,
-            start_time,
-            end_time,
-            description,
-            anonymous,
-            update_votes,
-            allow_ties,
-            candidates,
-        ) = request_parser(request)
+        election_data = request_parser()
+        logging.debug(f"Parsed election data: {election_data}")
     except Exception as e:
-        logging.error(f"Error in creating election - {request}: {e}")
+        logging.error(f"Error in parsing election creation data: {request}: {e}")
         output = {
             "status": False,
             "message": "Error occurred while creating election. This might also be due to invalid data in the request.",
@@ -275,25 +62,24 @@ def create_election(**candidates):
         }
         return jsonify(output), 400
 
-    election_data = {
-        "election_id": election_id,
-        "created_at": created_at,
-        "created_by": created_by,
-        "election_name": election_name,
-        "start_time": start_time,
-        "end_time": end_time,
-        "description": description,
-        "anonymous": anonymous,
-        "update_votes": update_votes,
-        "allow_ties": allow_ties,
-        "candidates": candidates,
-        "election_url": f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}",
-    }
-    logging.debug(f"Election creation data: {election_data}")
+    if election_data["election_id"] is None:
+        election_data["election_id"] = election_db.generate_new_election_id()
+
+    try:
+        verify_election_creation_parameters(election_data)
+    except Exception as e:
+        logging.error(f"Error in verifying election creation data: {request}: {e}")
+        output = {
+            "status": False,
+            "message": "Error occurred while creating election due to invalid data in the request.",
+            "error": str(e),
+        }
+        return jsonify(output), 400
 
     try:
         duplicate_exists, duplicate_id = election_db.check_duplicate_election(
-            created_by, candidates
+            election_data["created_by"],
+            election_data["candidates"],
         )
         if duplicate_exists:
             output = {
@@ -302,19 +88,10 @@ def create_election(**candidates):
             }
             response_code = 409
         else:
-            election_db.add_election(
-                election_id,
-                created_at,
-                created_by,
-                election_name,
-                start_time,
-                end_time,
-                description,
-                anonymous,
-                update_votes,
-                allow_ties,
-                candidates,
-            )
+            election_db.add_election(election_data)
+            election_id = election_data["election_id"]
+            logging.info(f"Election creation data: {election_data}")
+            election_data["election_url"] = f"{http_prefix}://{urlparse(request.base_url).netloc}/{election_id}"
             output = {
                 "status": True,
                 "message": "Election created successfully.",
@@ -325,219 +102,220 @@ def create_election(**candidates):
         logging.error(f"Exception while inserting new election: {e}")
         output = {
             "status": False,
-            "message": "Error occurred while creating election. This might also be due to a database error. Contact the administrators for more information.",
+            "message": "Error occurred while creating election. "
+                       "This might also be due to a database error. Contact the administrators for more information.",
             "error": str(e),
         }
         response_code = 400
     return jsonify(output), response_code
 
 
-@app.route("/remove/<election_id>", methods=["GET"])
-def remove_election(election_id):
-    try:
-        if not election_db.check_election_id_exists(election_id):
-            raise Exception("Election ID does not exist")
-    except Exception as e:
-        logging.error(f"Exception occurred while removing election {election_id}: {e}")
-        output = {
-            "status": False,
-            "message": f"Error occurred while removing election. This might also be due to an invalid election ID.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
-
-    output = dict()
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    logging.debug(
-        f"Election removal request from {ip_address} for election {election_id}"
-    )
-    try:
-        election_data = election_db.get_election_data_by_id(election_id)
-        election_db.remove_election(election_id, ip_address)
-        output["status"] = True
-        output["message"] = f"Election {election_id} removed successfully"
-        output["data"] = election_data
-        response_code = 200
-    except Exception as e:
-        logging.error(f"Exception occurred while removing election: {e}")
-        output["status"] = False
-        output[
-            "message"
-        ] = f"Error occurred while removing election {election_id}. This might also be due to a database error. Contact the administrators for more information."
-        output["error"] = str(e)
-        response_code = 400
-    return jsonify(output), response_code
-
-
-@app.route("/<election_id>", methods=["GET"])
-def election_page(election_id):
-    try:
-        if not election_db.check_election_id_exists(election_id):
-            raise Exception("Election ID does not exist")
-    except Exception as e:
-        logging.error(
-            f"Exception occurred while retrieving election {election_id} details: {e}"
-        )
-        output = {
-            "status": False,
-            "message": f"Error occurred while retrieving election details. This might also be due to an invalid election ID.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
-
-    try:
-        election_data = election_db.get_election_data_by_id(election_id)
-        logging.debug(f"Election data fetched: {election_data}")
-        ip_address = (
-            request.headers.getlist("X-Forwarded-For")[0]
-            if request.headers.getlist("X-Forwarded-For")
-            else request.remote_addr
-        )
-        if election_data["anonymous"] and ip_address != election_data["created_by"]:
-            del election_data["votes"]
-        output = {
-            "status": True,
-            "message": "Election details fetched successfully.",
-            "data": election_data,
-        }
-        response_code = 200
-    except Exception as e:
-        logging.error(
-            f"Exception occurred while retrieving election details for {election_id}: {e}"
-        )
-        output = {
-            "status": False,
-            "message": f"Error occurred while retrieving election details for {election_id}. This might also be due to a database error. Contact the administrators for more information.",
-            "error": str(e),
-        }
-        response_code = 400
-    return jsonify(output), response_code
+# @app.route("/remove/<election_id>", methods=["GET"])
+# def remove_election(election_id):
+#     try:
+#         if not election_db.check_election_id_exists(election_id):
+#             raise Exception("Election ID does not exist")
+#     except Exception as e:
+#         logging.error(f"Exception occurred while removing election {election_id}: {e}")
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while removing election. This might also be due to an invalid election ID.",
+#             "error": str(e),
+#         }
+#         return jsonify(output), 400
+#
+#     output = dict()
+#     ip_address = (
+#         request.headers.getlist("X-Forwarded-For")[0]
+#         if request.headers.getlist("X-Forwarded-For")
+#         else request.remote_addr
+#     )
+#     logging.debug(
+#         f"Election removal request from {ip_address} for election {election_id}"
+#     )
+#     try:
+#         election_data = election_db.get_election_data_by_id(election_id)
+#         election_db.remove_election(election_id, ip_address)
+#         output["status"] = True
+#         output["message"] = f"Election {election_id} removed successfully"
+#         output["data"] = election_data
+#         response_code = 200
+#     except Exception as e:
+#         logging.error(f"Exception occurred while removing election: {e}")
+#         output["status"] = False
+#         output[
+#             "message"
+#         ] = f"Error occurred while removing election {election_id}. This might also be due to a database error. Contact the administrators for more information."
+#         output["error"] = str(e)
+#         response_code = 400
+#     return jsonify(output), response_code
 
 
-@app.route("/vote/<election_id>/<path:votes>", methods=["GET"])
-def add_vote(election_id, votes):
-    try:
-        if not election_db.check_election_id_exists(election_id):
-            raise Exception("Election ID does not exist")
-    except Exception as e:
-        logging.error(f"Exception occurred while adding vote to {election_id}: {e}")
-        output = {
-            "status": False,
-            "message": f"Error occurred while adding vote. This might also be due to an invalid election ID.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
-
-    http_prefix = "https" if request.is_secure else "http"
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    votes = votes.split("/")
-    votes = list(filter(bool, votes))
-    try:
-        num_votes = len(votes)
-        valid_candidates = election_db.get_election_candidates(election_id)
-        valid_candidates_string = ", ".join(valid_candidates)
-        if not (
-            num_votes > 0
-            and num_votes == len(set(votes))
-            and num_votes == len(valid_candidates)
-            and all(candidate in valid_candidates for candidate in votes)
-        ):
-            valid_candidates = ", ".join(valid_candidates)
-            raise Exception(
-                f"Invalid vote candidates. Valid candidates are: {valid_candidates_string}"
-            )
-    except Exception as e:
-        logging.error(f"Exception occurred while adding vote: {e}")
-        output = {
-            "status": False,
-            "message": f"Error occurred while adding vote. This might also be due to invalid vote candidates.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
-
-    logging.debug(f"Ranked votes by {ip_address}: {votes}")
-    output = dict()
-    try:
-        election_db.add_vote(election_id, ip_address, votes)
-        output["status"] = True
-        output["message"] = "Vote added successfully."
-        response_code = 200
-    except Exception as e:
-        logging.error(f"Exception occurred while adding vote: {e}")
-        output["status"] = False
-        output[
-            "message"
-        ] = "Error occurred while adding vote. This might also be due to a database error. Contact the administrators for more information."
-        output["error"] = str(e)
-        response_code = 400
-    return jsonify(output), response_code
+# @app.route("/<election_id>", methods=["GET"])
+# def election_page(election_id):
+#     try:
+#         if not election_db.check_election_id_exists(election_id):
+#             raise Exception("Election ID does not exist")
+#     except Exception as e:
+#         logging.error(
+#             f"Exception occurred while retrieving election {election_id} details: {e}"
+#         )
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while retrieving election details. This might also be due to an invalid election ID.",
+#             "error": str(e),
+#         }
+#         return jsonify(output), 400
+#
+#     try:
+#         election_data = election_db.get_election_data_by_id(election_id)
+#         logging.debug(f"Election data fetched: {election_data}")
+#         ip_address = (
+#             request.headers.getlist("X-Forwarded-For")[0]
+#             if request.headers.getlist("X-Forwarded-For")
+#             else request.remote_addr
+#         )
+#         if election_data["anonymous"] and ip_address != election_data["created_by"]:
+#             del election_data["votes"]
+#         output = {
+#             "status": True,
+#             "message": "Election details fetched successfully.",
+#             "data": election_data,
+#         }
+#         response_code = 200
+#     except Exception as e:
+#         logging.error(
+#             f"Exception occurred while retrieving election details for {election_id}: {e}"
+#         )
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while retrieving election details for {election_id}. This might also be due to a database error. Contact the administrators for more information.",
+#             "error": str(e),
+#         }
+#         response_code = 400
+#     return jsonify(output), response_code
 
 
-@app.route("/unvote/<election_id>", methods=["GET"])
-def remove_vote(election_id):
-    try:
-        if not election_db.check_election_id_exists(election_id):
-            raise Exception("Election ID does not exist")
-    except Exception as e:
-        logging.error(f"Exception occurred while removing vote from {election_id}: {e}")
-        output = {
-            "status": False,
-            "message": f"Error occurred while removing vote. This might also be due to an invalid election ID.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
+# @app.route("/vote/<election_id>/<path:votes>", methods=["GET"])
+# def add_vote(election_id, votes):
+#     try:
+#         if not election_db.check_election_id_exists(election_id):
+#             raise Exception("Election ID does not exist")
+#     except Exception as e:
+#         logging.error(f"Exception occurred while adding vote to {election_id}: {e}")
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while adding vote. This might also be due to an invalid election ID.",
+#             "error": str(e),
+#         }
+#         return jsonify(output), 400
+#
+#     http_prefix = "https" if request.is_secure else "http"
+#     ip_address = (
+#         request.headers.getlist("X-Forwarded-For")[0]
+#         if request.headers.getlist("X-Forwarded-For")
+#         else request.remote_addr
+#     )
+#     votes = votes.split("/")
+#     votes = list(filter(bool, votes))
+#     try:
+#         num_votes = len(votes)
+#         valid_candidates = election_db.get_election_candidates(election_id)
+#         valid_candidates_string = ", ".join(valid_candidates)
+#         if not (
+#                 num_votes > 0
+#                 and num_votes == len(set(votes))
+#                 and num_votes == len(valid_candidates)
+#                 and all(candidate in valid_candidates for candidate in votes)
+#         ):
+#             valid_candidates = ", ".join(valid_candidates)
+#             raise Exception(
+#                 f"Invalid vote candidates. Valid candidates are: {valid_candidates_string}"
+#             )
+#     except Exception as e:
+#         logging.error(f"Exception occurred while adding vote: {e}")
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while adding vote. This might also be due to invalid vote candidates.",
+#             "error": str(e),
+#         }
+#         return jsonify(output), 400
+#
+#     logging.debug(f"Ranked votes by {ip_address}: {votes}")
+#     output = dict()
+#     try:
+#         election_db.add_vote(election_id, ip_address, votes)
+#         output["status"] = True
+#         output["message"] = "Vote added successfully."
+#         response_code = 200
+#     except Exception as e:
+#         logging.error(f"Exception occurred while adding vote: {e}")
+#         output["status"] = False
+#         output[
+#             "message"
+#         ] = "Error occurred while adding vote. This might also be due to a database error. Contact the administrators for more information."
+#         output["error"] = str(e)
+#         response_code = 400
+#     return jsonify(output), response_code
 
-    http_prefix = "https" if request.is_secure else "http"
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    logging.debug(f"Unvoting for {ip_address} from election {election_id}")
-    output = dict()
-    try:
-        election_db.remove_vote(election_id, ip_address)
-        output["status"] = True
-        output["message"] = "Vote removed successfully."
-        response_code = 200
-    except Exception as e:
-        logging.error(f"Exception occurred while unvoting: {e}")
-        output["status"] = False
-        output[
-            "message"
-        ] = "Error occurred while removing vote. This might also be due to a database error. Contact the administrators for more information."
-        output["error"] = str(e)
-        response_code = 400
-    return jsonify(output), response_code
+
+# @app.route("/unvote/<election_id>", methods=["GET"])
+# def remove_vote(election_id):
+#     try:
+#         if not election_db.check_election_id_exists(election_id):
+#             raise Exception("Election ID does not exist")
+#     except Exception as e:
+#         logging.error(f"Exception occurred while removing vote from {election_id}: {e}")
+#         output = {
+#             "status": False,
+#             "message": f"Error occurred while removing vote. This might also be due to an invalid election ID.",
+#             "error": str(e),
+#         }
+#         return jsonify(output), 400
+#
+#     http_prefix = "https" if request.is_secure else "http"
+#     ip_address = (
+#         request.headers.getlist("X-Forwarded-For")[0]
+#         if request.headers.getlist("X-Forwarded-For")
+#         else request.remote_addr
+#     )
+#     logging.debug(f"Unvoting for {ip_address} from election {election_id}")
+#     output = dict()
+#     try:
+#         election_db.remove_vote(election_id, ip_address)
+#         output["status"] = True
+#         output["message"] = "Vote removed successfully."
+#         response_code = 200
+#     except Exception as e:
+#         logging.error(f"Exception occurred while unvoting: {e}")
+#         output["status"] = False
+#         output[
+#             "message"
+#         ] = "Error occurred while removing vote. This might also be due to a database error. Contact the administrators for more information."
+#         output["error"] = str(e)
+#         response_code = 400
+#     return jsonify(output), response_code
 
 
-@app.route("/update", methods=["POST"])
-def update_election():
-    new_election_data = request.get_json()
-    logging.debug(f"New election data: {new_election_data}")
-    output = dict()
-    if new_election_data:
-        try:
-            updated_election_data = update_election_with_new_data(new_election_data)
-            output["status"] = True
-            output["message"] = "Election updated successfully."
-            output["data"] = updated_election_data
-            response_code = 200
-        except Exception as e:
-            logging.error(f"Exception occurred while updating election: {e}")
-            output["status"] = False
-            output["message"] = "Error occurred while updating election."
-            response_code = 400
-
-    return jsonify(output), response_code
+# @app.route("/update", methods=["POST"])
+# def update_election():
+#     new_election_data = request.get_json()
+#     logging.debug(f"New election data: {new_election_data}")
+#     output = dict()
+#     if new_election_data:
+#         try:
+#             updated_election_data = update_election_with_new_data(new_election_data)
+#             output["status"] = True
+#             output["message"] = "Election updated successfully."
+#             output["data"] = updated_election_data
+#             response_code = 200
+#         except Exception as e:
+#             logging.error(f"Exception occurred while updating election: {e}")
+#             output["status"] = False
+#             output["message"] = "Error occurred while updating election."
+#             response_code = 400
+#
+#     return jsonify(output), response_code
 
 
 if __name__ == "__main__":

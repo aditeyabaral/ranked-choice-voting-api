@@ -4,13 +4,13 @@ import json
 import uuid
 import logging
 import datetime
+from typing import Literal, Any
 from dotenv import load_dotenv
 from sqlalchemy import and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
-from election import get_election_results
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.ext.declarative import declarative_base
-
 
 load_dotenv()
 IST = pytz.timezone("Asia/Kolkata")
@@ -18,9 +18,8 @@ IST = pytz.timezone("Asia/Kolkata")
 
 class ElectionDatabase:
     def __init__(self):
-        DATABASE_URL = os.environ.get("APP_DATABASE_URL")
         self.base = declarative_base()
-        self.engine = create_engine(DATABASE_URL)
+        self.engine = create_engine(os.environ.get("APP_DATABASE_URL"))
         self.connection = self.engine.connect()
         self.metadata = MetaData()
         self.Session = sessionmaker(bind=self.engine)
@@ -29,7 +28,10 @@ class ElectionDatabase:
         self.setup_tables()
 
         self.election_table = Table(
-            "election", self.metadata, autoload=True, autoload_with=self.engine
+            "election",
+            self.metadata,
+            autoload=True,
+            autoload_with=self.engine
         )
 
     def setup_tables(self):
@@ -41,49 +43,26 @@ class ElectionDatabase:
                 except Exception as e:
                     logging.error(f"Exception while executing query: {query}: {e}")
 
-    def check_election_id_exists(self, election_id):
+    def check_election_id_exists(self, election_id: str) -> bool:
         query = self.election_table.select().where(
             self.election_table.c.election_id == election_id
         )
         result = self.connection.execute(query)
         return result.rowcount > 0
 
-    def generate_election_id(self, election_db):
+    def generate_new_election_id(self) -> str:
         while True:
             election_id = str(uuid.uuid1().hex[:5])
             if not self.check_election_id_exists(election_id):
                 return election_id
 
-    def add_election(
-        self,
-        election_id,
-        created_at,
-        created_by,
-        election_name,
-        start_time,
-        end_time,
-        description,
-        anonymous,
-        update_votes,
-        allow_ties,
-        candidates,
-    ):
-        candidates = list(map(str, candidates))
-        candidates = json.dumps(candidates)
-        query = self.election_table.insert().values(
-            election_id=election_id,
-            created_at=created_at,
-            created_by=created_by,
-            election_name=election_name,
-            start_time=start_time,
-            end_time=end_time,
-            description=description,
-            anonymous=anonymous,
-            update_votes=update_votes,
-            allow_ties=allow_ties,
-            candidates=candidates,
+    def add_election(self, election_data: dict[str, Any]):
+        query = (
+            insert(self.election_table)
+            .values(election_data)
         )
         self.connection.execute(query)
+        logging.debug(query)
 
     def remove_election(self, election_id, ip_address):
         election_data = self.get_election_data_by_id(election_id)
@@ -185,22 +164,14 @@ class ElectionDatabase:
         return elections
 
     def check_duplicate_election(self, created_by, candidates):
-        elections = self.get_election_data_by_creator(created_by)
-        duplicate_found = False
-        duplicate_id, duplicate_end_time = None, None
-        for election_info in elections:
-            if election_info["candidates"] == candidates:
-                duplicate_found = True
-                duplicate_id, duplicate_end_time = (
-                    election_info["election_id"],
-                    election_info["end_time"],
-                )
-                duplicate_end_time = datetime.datetime.strptime(
-                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f"
-                ).astimezone(IST)
-                break
-        if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
-            return True, election_info["election_id"]
+        query = self.election_table.select() \
+            .where(self.election_table.c.created_by == created_by) \
+            .where(self.election_table.c.candidates == candidates) \
+            .where(self.election_table.c.end_time > datetime.datetime.now(IST))
+        result = self.connection.execute(query)
+
+        if result.rowcount > 0:
+            return True, result.fetchone()[0]
         else:
             return False, None
 
@@ -280,9 +251,9 @@ class ElectionDatabase:
 
         # check if voter has already voted to prevent voter from updating votes
         if (
-            election_votes is not None
-            and voter_ip in election_votes
-            and not election_update_votes
+                election_votes is not None
+                and voter_ip in election_votes
+                and not election_update_votes
         ):
             logging.error(
                 f"Voter {voter_ip} has already voted. Votes cannot be updated."
@@ -351,7 +322,7 @@ class ElectionDatabase:
 
         # check if voter has already voted -> cannot remove vote
         if election_votes is None or (
-            election_votes is not None and voter_ip not in election_votes
+                election_votes is not None and voter_ip not in election_votes
         ):
             logging.error(f"Voter {voter_ip} has not voted")
             raise Exception(f"Voter {voter_ip} has not voted")
