@@ -64,7 +64,7 @@ class ElectionDatabase:
         self.connection.execute(query)
         logging.debug(query)
 
-    def remove_election(self, election_id, ip_address):
+    def remove_election(self, election_id: str, ip_address: str):
         election_data = self.get_election_data_by_id(election_id)
         if election_data["created_by"] != ip_address:
             raise Exception("You are not authorized to remove this election.")
@@ -73,7 +73,7 @@ class ElectionDatabase:
         )
         self.connection.execute(query)
 
-    def get_election_data_by_id(self, election_id):
+    def get_election_data_by_id(self, election_id: str):
         query = self.election_table.select().where(
             self.election_table.c.election_id == election_id
         )
@@ -192,6 +192,7 @@ class ElectionDatabase:
         return candidates
 
     def get_election_time(self, election_id):
+
         query = self.election_table.select().where(
             self.election_table.c.election_id == election_id
         )

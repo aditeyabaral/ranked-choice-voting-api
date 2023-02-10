@@ -5,6 +5,8 @@ import pyrankvote
 from pyrankvote import Candidate, Ballot
 
 
+# TODO: Refactor by adding support for typing data types (Python 3.7+)
+
 def get_ballot_from_candidate_list_string(candidate_list: list[str]) -> Ballot:
     candidate_list = [Candidate(candidate) if isinstance(candidate, str) else candidate for candidate in candidate_list]
     return Ballot(ranked_candidates=candidate_list)
