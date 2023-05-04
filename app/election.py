@@ -1,5 +1,14 @@
 import copy
 import logging
+import pyrankvote
+from pyrankvote import Candidate, Ballot
+
+
+def get_election_result(candidates, ballots, voting_strategy="instant_runoff"):
+    if voting_strategy == "instant_runoff":
+        _function = pyrankvote.instant_runoff_voting
+    elif voting_strategy == "borda_count":
+        _function = pyrankvote.
 
 
 def resolve_tiebreaker(candidates, votes):
