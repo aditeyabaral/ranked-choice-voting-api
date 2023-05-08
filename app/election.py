@@ -1,5 +1,6 @@
-from typing import Union
 import logging
+from typing import Union
+
 import pyrankvote
 from pyrankvote import Candidate, Ballot
 from pyrankvote.helpers import ElectionResults

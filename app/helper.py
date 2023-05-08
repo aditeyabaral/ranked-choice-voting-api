@@ -3,7 +3,6 @@ import logging
 from typing import Any
 
 import flask
-import pytz
 
 from db import ElectionDatabase
 

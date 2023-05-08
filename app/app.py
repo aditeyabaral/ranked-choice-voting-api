@@ -287,7 +287,4 @@ def remove_vote(_id: str):
 if __name__ == "__main__":
     election_db = ElectionDatabase()
     helper = helper.APIHelper(election_db)
-    app.run(
-        host=os.environ.get("HOST", "0.0.0.0"),
-        port=int(os.environ.get("PORT", 5000))
-    )
+    app.run(host="0.0.0.0", port=5000)
