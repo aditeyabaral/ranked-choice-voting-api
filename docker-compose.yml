@@ -7,23 +7,19 @@ services:
       - "5000:5000"
     container_name: flask
     depends_on:
-      - postgres
+      - mongo
     restart: on-failure
     links:
-      - postgres
-  postgres:
-    image: postgres
-    container_name: postgres
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+      - mongo
+  mongo:
+    image: mongo
+    container_name: mongo
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - ./data:/data/db
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      test: [ "CMD", "curl", "-f", "http://localhost:27017" ]
       interval: 30s
       timeout: 10s
       retries: 5

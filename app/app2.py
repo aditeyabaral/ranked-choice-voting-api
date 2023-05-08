@@ -186,7 +186,6 @@ def view_election(_id: str):
     return jsonify(output), response_code
 
 
-@app.route("/vote/<_id>/<path:ballot>", methods=["GET"])
 @app.route("/addVote/<_id>/<path:ballot>", methods=["GET"])
 def add_vote(_id: str, ballot: str):
     logging.info(f"Received ballot: {ballot} for election with ID: {_id}")
@@ -221,8 +220,9 @@ def add_vote(_id: str, ballot: str):
         return jsonify(output), 400
 
     try:
+        logging.info(f"Adding ballot for election - {_id} by {ip_address}")
         election_db.add_ballot_to_election(_id, ip_address, ballot)
-        logging.info(f"Added ballot for election - {_id} by {ip_address}")
+        logging.info(f"Successfully added ballot for election - {_id} by {ip_address}")
         output = {
             "status": True,
             "message": "Ballot added successfully.",
@@ -234,6 +234,51 @@ def add_vote(_id: str, ballot: str):
         output = {
             "status": False,
             "message": f"Error occurred while adding ballot for election with ID: {_id}",
+            "error": str(e),
+        }
+        response_code = 400
+
+    return jsonify(output), response_code
+
+
+@app.route("/removeVote/<_id>", methods=["GET"])
+def remove_vote(_id: str):
+    ip_address = (
+        request.headers.getlist("X-Forwarded-For")[0]
+        if request.headers.getlist("X-Forwarded-For")
+        else request.remote_addr
+    )
+    logging.info(f"Received request to remove ballot for election - {_id} by {ip_address}")
+
+    try:
+        if election_db.check_election_id_exists(_id) is None:
+            raise Exception(f"Election with ID: {_id} does not exist.")
+        logging.info(f"Fetched election with ID: {_id} for removing ballot")
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in fetching election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while fetching election with ID: {_id}",
+            "error": str(e),
+        }
+        return jsonify(output), 400
+
+    try:
+        logging.info(f"Removing ballot for election - {_id} by {ip_address}")
+        election_db.remove_ballot_from_election(_id, ip_address)
+        logging.info(f"Successfully removed ballot for election - {_id} by {ip_address}")
+        output = {
+            "status": True,
+            "message": "Ballot removed successfully.",
+        }
+        response_code = 200
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in removing ballot for election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while removing ballot for election with ID: {_id}",
             "error": str(e),
         }
         response_code = 400

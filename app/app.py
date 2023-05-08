@@ -61,44 +61,6 @@ def update_election_with_new_data(new_election_data):
     return current_election_data
 
 
-@app.route("/unvote/<election_id>", methods=["GET"])
-def remove_vote(election_id):
-    try:
-        if not election_db.check_election_id_exists(election_id):
-            raise Exception("Election ID does not exist")
-    except Exception as e:
-        logging.error(f"Exception occurred while removing vote from {election_id}: {e}")
-        output = {
-            "status": False,
-            "message": f"Error occurred while removing vote. This might also be due to an invalid election ID.",
-            "error": str(e),
-        }
-        return jsonify(output), 400
-
-    http_prefix = "https" if request.is_secure else "http"
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
-    logging.debug(f"Unvoting for {ip_address} from election {election_id}")
-    output = dict()
-    try:
-        election_db.remove_vote(election_id, ip_address)
-        output["status"] = True
-        output["message"] = "Vote removed successfully."
-        response_code = 200
-    except Exception as e:
-        logging.error(f"Exception occurred while unvoting: {e}")
-        output["status"] = False
-        output[
-            "message"
-        ] = "Error occurred while removing vote. This might also be due to a database error. Contact the administrators for more information."
-        output["error"] = str(e)
-        response_code = 400
-    return jsonify(output), response_code
-
-
 @app.route("/update", methods=["POST"])
 def update_election():
     new_election_data = request.get_json()
