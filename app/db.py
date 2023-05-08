@@ -1,482 +1,223 @@
-import os
-import pytz
-import json
-import uuid
-import logging
 import datetime
-from dotenv import load_dotenv
-from sqlalchemy import and_
-from sqlalchemy.orm import sessionmaker
-from election import get_election_results
-from sqlalchemy import create_engine, MetaData, Table
-from sqlalchemy.ext.declarative import declarative_base
+import logging
+import os
+from typing import Any, Mapping, Optional
 
+import pymongo
+import pytz
 
-load_dotenv()
+from election import get_election_result
+
 IST = pytz.timezone("Asia/Kolkata")
 
 
 class ElectionDatabase:
     def __init__(self):
-        DATABASE_URL = os.environ.get("APP_DATABASE_URL")
-        self.base = declarative_base()
-        self.engine = create_engine(DATABASE_URL)
-        self.connection = self.engine.connect()
-        self.metadata = MetaData()
-        self.Session = sessionmaker(bind=self.engine)
-        self.session = self.Session()
-        logging.debug(f"Database connection established: {self}")
-        self.setup_tables()
+        self.client = pymongo.MongoClient(os.environ["MONGO_URI"])
+        self.db = self.client["ranked_choice_voting"]
+        self.election = self.db["election"]
 
-        self.election_table = Table(
-            "election", self.metadata, autoload=True, autoload_with=self.engine
-        )
+    def check_election_id_exists(self, election_id: str) -> bool:
+        return self.election.find_one({"_id": election_id}) is not None
 
-    def setup_tables(self):
-        with open("app/conf/setup_db.sql") as f:
-            queries = f.read().strip().split("\n\n")
-            for query in queries:
-                try:
-                    self.connection.execute(query)
-                except Exception as e:
-                    logging.error(f"Exception while executing query: {query}: {e}")
+    def generate_election_id(self) -> str:
+        # TODO - is this required?
+        return "test"
 
-    def check_election_id_exists(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query)
-        return result.rowcount > 0
+    def get_election_data_by_id(self, election_id: str) -> Mapping[str, Any]:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election
 
-    def generate_election_id(self, election_db):
-        while True:
-            election_id = str(uuid.uuid1().hex[:5])
-            if not self.check_election_id_exists(election_id):
-                return election_id
+    def get_election_data_by_creator(self, created_by: str) -> list[Mapping[str, Any]]:
+        return list(self.election.find({"created_by": created_by}))
 
-    def add_election(
-        self,
-        election_id,
-        created_at,
-        created_by,
-        election_name,
-        start_time,
-        end_time,
-        description,
-        anonymous,
-        update_votes,
-        allow_ties,
-        candidates,
-    ):
-        candidates = list(map(str, candidates))
-        candidates = json.dumps(candidates)
-        query = self.election_table.insert().values(
-            election_id=election_id,
-            created_at=created_at,
-            created_by=created_by,
-            election_name=election_name,
-            start_time=start_time,
-            end_time=end_time,
-            description=description,
-            anonymous=anonymous,
-            update_votes=update_votes,
-            allow_ties=allow_ties,
-            candidates=candidates,
-        )
-        self.connection.execute(query)
+    def get_election__by_id_and_creator(self, election_id: str, created_by: str) -> Mapping[str, Any]:
+        election = self.election.find_one({"_id": election_id, "created_by": created_by})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election
 
-    def remove_election(self, election_id, ip_address):
-        election_data = self.get_election_data_by_id(election_id)
-        if election_data["created_by"] != ip_address:
-            raise Exception("You are not authorized to remove this election.")
-        query = self.election_table.delete().where(
-            self.election_table.c.election_id == election_id
-        )
-        self.connection.execute(query)
+    def add_election(self, election_data: dict[str, Any]):
+        self.election.insert_one(election_data)
 
-    def get_election_data_by_id(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        (
-            election_id,
-            created_at,
-            created_by,
-            election_name,
-            start_time,
-            end_time,
-            description,
-            anonymous,
-            update_votes,
-            allow_ties,
-            candidates,
-            votes,
-            round_number,
-            winner,
-        ) = result
-        candidates = json.loads(candidates)
-        votes = json.loads(votes) if votes is not None else votes
-        created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
-        start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
-        end_time = str(end_time) if end_time is not None else end_time
-        return {
-            "election_id": election_id,
-            "created_at": created_at,
-            "created_by": created_by,
-            "election_name": election_name,
-            "start_time": start_time,
-            "end_time": end_time,
-            "description": description,
-            "anonymous": anonymous,
-            "update_votes": update_votes,
-            "allow_ties": allow_ties,
-            "candidates": candidates,
-            "votes": votes,
-            "round_number": round_number,
-            "winner": winner,
-        }
+    def remove_election(self, election_id: str, ip_address: str):
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            if election["ip_address"] != ip_address:
+                raise Exception("You are not authorized to delete this election")
+            else:
+                self.election.delete_one({"_id": election_id, "ip_address": ip_address})
 
-    def get_election_data_by_creator(self, created_by):
-        query = self.election_table.select().where(
-            self.election_table.c.created_by == created_by
-        )
-        all_elections = self.connection.execute(query).fetchall()
-        elections = list()
-        for result in all_elections:
-            (
-                election_id,
-                created_at,
-                created_by,
-                election_name,
-                start_time,
-                end_time,
-                description,
-                anonymous,
-                update_votes,
-                allow_ties,
-                candidates,
-                votes,
-                round_number,
-                winner,
-            ) = result
-            candidates = json.loads(candidates)
-            votes = json.loads(votes) if votes is not None else votes
-            created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
-            start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
-            end_time = str(end_time) if end_time is not None else end_time
-            election = {
-                "election_id": election_id,
-                "created_at": created_at,
-                "created_by": created_by,
-                "election_name": election_name,
-                "start_time": start_time,
-                "end_time": end_time,
-                "description": description,
-                "anonymous": anonymous,
-                "update_votes": update_votes,
-                "allow_ties": allow_ties,
-                "candidates": candidates,
-                "votes": votes,
-                "round_number": round_number,
-                "winner": winner,
-            }
-            elections.append(election)
-        return elections
-
-    def check_duplicate_election(self, created_by, candidates):
-        elections = self.get_election_data_by_creator(created_by)
-        duplicate_found = False
-        duplicate_id, duplicate_end_time = None, None
-        for election_info in elections:
-            if election_info["candidates"] == candidates:
+    def check_duplicate_election_is_running(self, created_by: str, candidates):
+        elections_by_creator = list(self.election.find({"created_by": created_by}))
+        duplicate_found, duplicate_election_id, duplicate_election_end_time = False, None, None
+        for election in elections_by_creator:
+            if election["candidates"] == candidates:
                 duplicate_found = True
-                duplicate_id, duplicate_end_time = (
-                    election_info["election_id"],
-                    election_info["end_time"],
-                )
-                duplicate_end_time = datetime.datetime.strptime(
-                    duplicate_end_time, "%Y-%m-%d %H:%M:%S.%f"
-                ).astimezone(IST)
+                duplicate_election_id = election["_id"]
+                duplicate_election_end_time = election["end_time"]
                 break
-        if duplicate_found and duplicate_end_time > datetime.datetime.now(IST):
-            return True, election_info["election_id"]
+        if duplicate_found and duplicate_election_end_time > datetime.datetime.now(IST):
+            return True, duplicate_election_id
         else:
             return False, None
 
-    def get_election_votes(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        votes = json.loads(result[-3]) if result[-3] is not None else None
-        return votes
+    def get_election_votes(self, election_id: str) -> Optional[dict[str, list[str]]]:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election.get("votes", None)
 
-    def get_election_candidates(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        candidates = json.loads(result[-4]) if result[-4] is not None else None
-        return candidates
+    def get_election_candidates(self, election_id: str) -> Optional[list[str]]:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election["candidates"]
 
-    def get_election_time(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        start_time, end_time = result[4], result[5]
-        start_time = IST.localize(start_time)
-        end_time = IST.localize(end_time) if end_time is not None else end_time
-        return start_time, end_time
+    def get_election_start_and_end_time(self, election_id: str) -> Optional[
+        tuple[datetime.datetime, datetime.datetime]]:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election["start_time"], election.get("end_time", None)
 
-    def check_election_update_votes(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        update_votes = result[-6]
-        return update_votes
+    def check_election_votes_can_be_updated(self, election_id: str) -> bool:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election["update_votes"]
 
-    def check_election_allow_ties(self, election_id):
-        query = self.election_table.select().where(
-            self.election_table.c.election_id == election_id
-        )
-        result = self.connection.execute(query).fetchall()[0]
-        allow_ties = result[-5]
-        return allow_ties
+    def check_election_allows_ties(self, election_id: str) -> bool:
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+        else:
+            return election["allow_ties"]
 
-    def add_vote(self, election_id, voter_ip, votes):
+    def add_vote_to_election(self, election_id: str, voter_ip_address: str, votes: list[str]):
         current_time = datetime.datetime.now(IST)
-        election_votes = self.get_election_votes(election_id)
-        election_update_votes = self.check_election_update_votes(election_id)
-        election_allow_ties = self.check_election_allow_ties(election_id)
-        election_candidates = self.get_election_candidates(election_id)
-        election_candidates_string = ", ".join(election_candidates)
-        election_start_time, election_end_time = self.get_election_time(election_id)
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
 
-        # check if election has not started
+        election_votes = election.get("votes", None)
+        election_can_update_votes = election["update_votes"]
+        election_allow_ties = election["allow_ties"]
+        election_candidates = election["candidates"]
+        election_candidates_string = ", ".join(election_candidates)
+        election_start_time = election["start_time"]
+        election_end_time = election.get("end_time", None)
+
+        # check if the election has not started
         if current_time < election_start_time:
             logging.error(
-                f"Vote attempted before election start time: {current_time} < {election_start_time}"
-            )
+                f"Vote attempted before election start time by {voter_ip_address}: {current_time} < {election_start_time}")
             raise Exception("Vote attempted before election start time")
 
-        # check if election has ended
+        # check if the election has ended
         if election_end_time is not None and current_time > election_end_time:
             logging.error(
-                f"Vote attempted after election end time: {current_time} > {election_end_time}"
-            )
+                f"Vote attempted after election end time by {voter_ip_address}: {current_time} > {election_end_time}")
             raise Exception("Vote attempted after election end time")
 
         # check if votes contain all candidates
-        if set(election_candidates) != set(votes):
+        if set(votes) != set(election_candidates):
             logging.error(
-                f"Votes contain invalid candidates. Valid candidates are: {election_candidates_string}"
-            )
-            raise Exception(
-                f"Invalid candidates. Valid candidates are: {election_candidates_string}"
-            )
+                f"Votes by {voter_ip_address} contain invalid candidates. Valid candidates are: {election_candidates_string}")
+            raise Exception(f"Invalid candidates. Valid candidates are: {election_candidates_string}")
 
-        # check if voter has already voted to prevent voter from updating votes
-        if (
-            election_votes is not None
-            and voter_ip in election_votes
-            and not election_update_votes
-        ):
-            logging.error(
-                f"Voter {voter_ip} has already voted. Votes cannot be updated."
-            )
-            raise Exception(
-                f"Voter {voter_ip} has already voted. You cannot update your vote."
-            )
+        # check if voter has already voted and election votes cannot be updated
+        if election_votes is not None and voter_ip_address in election_votes and not election_can_update_votes:
+            logging.error(f"Voter {voter_ip_address} has already voted and election votes cannot be updated")
+            raise Exception("Voter has already voted and election votes cannot be updated")
 
-        # add vote
+        # add votes to election
         if election_votes is None:
-            election_votes = {voter_ip: votes}
-        else:
-            election_votes[voter_ip] = votes
-        logging.info(f"Adding vote for voter {voter_ip}")
-        logging.debug(f"New Votes: {election_votes}")
+            election_votes = {}
+        election_votes[voter_ip_address] = votes
+        logging.info(f"Vote added to election {election_id} by {voter_ip_address}")
 
-        # update new votes in database
-        query = (
-            self.election_table.update()
-            .where(self.election_table.c.election_id == election_id)
-            .values(votes=json.dumps(election_votes))
-        )
-        self.connection.execute(query)
+        # update votes in database
+        self.election.update_one({"_id": election_id}, {"$set": {"votes": election_votes}})
+        logging.info(f"Vote added to database for election {election_id} by {voter_ip_address}")
 
         # calculate new winner
-        election_results = get_election_results(
-            election_candidates, election_votes, election_allow_ties
-        )
-        logging.debug(f"Election Results: {election_results}")
-        winner, round_number = election_results
-        query = (
-            self.election_table.update()
-            .where(self.election_table.c.election_id == election_id)
-            .values(winner=winner, round_number=round_number)
-        )
-        self.connection.execute(query)
+        # TODO - fix this
+        election_results = get_election_result(election_candidates, election_votes, election_allow_ties)
+        logging.info(f"Calculated election results for election {election_id} by {voter_ip_address}")
+        election_winner, round_number = election_results
+        self.election.update_one({"_id": election_id},
+                                 {"$set": {"winner": election_winner, "round_number": round_number}})
+        logging.info(
+            f"Updated election results in database for election {election_id} due to vote addition by {voter_ip_address}")
 
-    def remove_vote(self, election_id, voter_ip):
+    def remove_vote_from_election(self, election_id: str, voter_ip_address: str):
         current_time = datetime.datetime.now(IST)
-        election_votes = self.get_election_votes(election_id)
-        election_update_votes = self.check_election_update_votes(election_id)
-        election_allow_ties = self.check_election_allow_ties(election_id)
-        election_candidates = self.get_election_candidates(election_id)
-        election_start_time, election_end_time = self.get_election_time(election_id)
+        election = self.election.find_one({"_id": election_id})
+        if election is None:
+            raise Exception("This election does not exist")
+
+        election_votes = election.get("votes", None)
+        election_can_update_votes = election["update_votes"]
+        election_allow_ties = election["allow_ties"]
+        election_candidates = election["candidates"]
+        election_candidates_string = ", ".join(election_candidates)
+        election_start_time = election["start_time"]
+        election_end_time = election.get("end_time", None)
 
         # check if votes can be removed
-        if not election_update_votes:
-            logging.error(
-                f"Voter {voter_ip} cannot remove vote. Votes cannot be updated."
-            )
-            raise Exception("Votes cannot be removed. Updating votes is disabled.")
+        if not election_can_update_votes:
+            logging.error(f"Votes cannot be removed from election {election_id} by {voter_ip_address}")
+            raise Exception("Votes cannot be removed from election")
 
-        # check if election has not started
+        # check if the election has not started
         if current_time < election_start_time:
             logging.error(
-                f"Vote removal attempted before election start time: {current_time} < {election_start_time}"
-            )
+                f"Vote removal attempted before election start time by {voter_ip_address}: {current_time} < {election_start_time}")
             raise Exception("Vote removal attempted before election start time")
 
-        # check if election has ended
+        # check if the election has ended
         if election_end_time is not None and current_time > election_end_time:
             logging.error(
-                f"Vote removal attempted after election end time: {current_time} > {election_end_time}"
-            )
+                f"Vote removal attempted after election end time by {voter_ip_address}: {current_time} > {election_end_time}")
             raise Exception("Vote removal attempted after election end time")
 
-        # check if voter has already voted -> cannot remove vote
-        if election_votes is None or (
-            election_votes is not None and voter_ip not in election_votes
-        ):
-            logging.error(f"Voter {voter_ip} has not voted")
-            raise Exception(f"Voter {voter_ip} has not voted")
+        # check if voter has not voted
+        if election_votes is None or (election_votes is not None and voter_ip_address not in election_votes):
+            logging.error(f"Voter {voter_ip_address} has not voted")
+            raise Exception("Voter has not voted")
 
-        # remove vote
-        if election_votes is not None:
-            del election_votes[voter_ip]
-            if not election_votes:
-                election_votes = None
-            logging.info(f"Removing vote for voter {voter_ip}")
-            logging.debug(f"New Votes: {election_votes}")
+        # remove votes from election
+        del election_votes[voter_ip_address]
+        if not election_votes:
+            election_votes = None
+        logging.info(f"Vote removed from election {election_id} by {voter_ip_address}")
 
-        # update new votes in database
-        query = (
-            self.election_table.update()
-            .where(self.election_table.c.election_id == election_id)
-            .values(votes=json.dumps(election_votes), round_number=None, winner=None)
-        )
-        self.connection.execute(query)
+        # update votes in database
+        self.election.update_one({"_id": election_id}, {"$set": {"votes": election_votes}})
+        logging.info(f"Vote removed from database for election {election_id} by {voter_ip_address}")
 
         # calculate new winner
-        if election_votes is not None:
-            election_results = get_election_results(
-                election_candidates, election_votes, election_allow_ties
-            )
-            logging.debug(f"Election Results: {election_results}")
-            winner, round_number = election_results
-            query = (
-                self.election_table.update()
-                .where(self.election_table.c.election_id == election_id)
-                .values(winner=winner, round_number=round_number)
-            )
-            self.connection.execute(query)
+        # TODO - fix this
+        election_results = get_election_result(election_candidates, election_votes, election_allow_ties)
+        logging.info(f"Calculated election results for election {election_id} by {voter_ip_address}")
+        election_winner, round_number = election_results
+        self.election.update_one({"_id": election_id},
+                                 {"$set": {"winner": election_winner, "round_number": round_number}})
+        logging.info(
+            f"Updated election results in database for election {election_id} due to vote removal by {voter_ip_address}")
 
-    def get_election_data_by_id_and_creator(self, election_id, created_by):
-        query = self.election_table.select().where(
-            and_(
-                self.election_table.c.election_id == election_id,
-                self.election_table.c.created_by == created_by,
-            )
-        )
-
-        election_details = self.connection.execute(query).fetchall()
-
-        if not election_details:
-            logging.error(
-                f"Election {election_id} not found or creator {created_by} is not the creator of the election"
-            )
-            return None
-
-        election_details = election_details[0]
-
-        (
-            election_id,
-            created_at,
-            created_by,
-            election_name,
-            start_time,
-            end_time,
-            description,
-            anonymous,
-            update_votes,
-            allow_ties,
-            candidates,
-            votes,
-            round_number,
-            winner,
-        ) = election_details
-        candidates = json.loads(candidates)
-        votes = json.loads(votes) if votes is not None else votes
-        created_at = datetime.datetime.strftime(created_at, "%Y-%m-%d %H:%M:%S")
-        start_time = datetime.datetime.strftime(start_time, "%Y-%m-%d %H:%M:%S")
-        end_time = str(end_time) if end_time is not None else end_time
-        election = {
-            "election_id": election_id,
-            "created_at": created_at,
-            "created_by": created_by,
-            "election_name": election_name,
-            "start_time": start_time,
-            "end_time": end_time,
-            "description": description,
-            "anonymous": anonymous,
-            "update_votes": update_votes,
-            "allow_ties": allow_ties,
-            "candidates": candidates,
-            "votes": votes,
-            "round_number": round_number,
-            "winner": winner,
-        }
-
-        return election
-
-    def update_election_details(self, election_details):
-        election_id = election_details["election_id"]
-        created_at = election_details["created_at"]
-        created_by = election_details["created_by"]
-        election_name = election_details["election_name"]
-        start_time = election_details["start_time"]
-        end_time = election_details["end_time"]
-        description = election_details["description"]
-        anonymous = election_details["anonymous"]
-        update_votes = election_details["update_votes"]
-        allow_ties = election_details["allow_ties"]
-        candidates = election_details["candidates"]
-        votes = election_details["votes"]
-        round_number = election_details["round_number"]
-        winner = election_details["winner"]
-
-        query = (
-            self.election_table.update()
-            .where(self.election_table.c.election_id == election_id)
-            .values(
-                created_at=created_at,
-                created_by=created_by,
-                election_name=election_name,
-                start_time=start_time,
-                end_time=end_time,
-                description=description,
-                anonymous=anonymous,
-                update_votes=update_votes,
-                allow_ties=allow_ties,
-                candidates=json.dumps(candidates),
-                votes=json.dumps(votes),
-                round_number=round_number,
-                winner=winner,
-            )
-        )
-        self.connection.execute(query)
+    def update_election_details(self, election: dict[str, Any]):
+        election_id = election["_id"]
+        self.election.update_one({"_id": election_id}, {"$set": election})
+        logging.info(f"Updated election details in database for election {election_id}")
