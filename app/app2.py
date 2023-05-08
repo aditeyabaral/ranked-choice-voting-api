@@ -5,7 +5,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import gh_md_to_html
-import pytz
+from bson import ObjectId
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
@@ -21,8 +21,9 @@ logging.basicConfig(
 
 load_dotenv()
 app = Flask(__name__)
-IST = pytz.timezone("Asia/Kolkata")
 
+
+# TODO: Update routes
 
 def convert_readme_to_html():
     html = gh_md_to_html.main("README.md").strip()
@@ -44,9 +45,10 @@ def index():
         return "Error occurred while retrieving home page", 500
 
 
-@app.route("/add", methods=["POST"])
-@app.route("/add/<path:candidates>", methods=["GET"])
-def create_election(**candidates):
+@app.route("/addElection", methods=["POST"])
+@app.route("/addElection/<path:candidates>", methods=["GET"])
+def add_election(**candidates: str):
+    logging.info(f"Received request to create new election")
     http_prefix = "https" if request.is_secure else "http"
     if request.method == "POST":
         request_parser = helper.parse_election_creation_data_from_post_request
@@ -89,8 +91,9 @@ def create_election(**candidates):
     return jsonify(output), response_code
 
 
-@app.route("/remove/<_id>", methods=["GET"])
-def remove_election(_id):
+@app.route("/removeElection/<_id>", methods=["GET"])
+def remove_election(_id: str):
+    logging.info(f"Received request to remove election with ID: {_id}")
     ip_address = (
         request.headers.getlist("X-Forwarded-For")[0]
         if request.headers.getlist("X-Forwarded-For")
@@ -98,7 +101,7 @@ def remove_election(_id):
     )
 
     try:
-        election: dict[str, Any] = election_db.get_election_by_id(_id)
+        election = election_db.get_election_by_id(_id)
         logging.info(f"Fetched election with ID: {_id} for removal")
     except Exception as e:
         stacktrace = traceback.format_exc()
@@ -135,6 +138,107 @@ def remove_election(_id):
             "message": "Election removed successfully.",
         }
         return jsonify(output), 200
+
+
+@app.route("/viewElection/<_id>", methods=["GET"])
+def view_election(_id: str):
+    logging.info(f"Received request to view election with ID: {_id}")
+    ip_address = (
+        request.headers.getlist("X-Forwarded-For")[0]
+        if request.headers.getlist("X-Forwarded-For")
+        else request.remote_addr
+    )
+
+    try:
+        election = election_db.get_election_by_id(_id)
+        if isinstance(election["_id"], ObjectId):
+            election["_id"] = str(election["_id"])
+        logging.info(f"Fetched election with ID: {_id} for rendering")
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in fetching election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while fetching election with ID: {_id}",
+            "error": str(e),
+        }
+        return jsonify(output), 400
+
+    try:
+        if election["anonymous"] and election["creator"] != ip_address and "ballots" in election:
+            del election["ballots"]
+        output = {
+            "status": True,
+            "message": "Election details fetched successfully.",
+            "data": election,
+        }
+        response_code = 200
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in deleting ballots from election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while fetching election with ID: {_id}",
+            "error": str(e),
+        }
+        response_code = 400
+
+    return jsonify(output), response_code
+
+
+@app.route("/vote/<_id>/<path:ballot>", methods=["GET"])
+@app.route("/addVote/<_id>/<path:ballot>", methods=["GET"])
+def add_vote(_id: str, ballot: str):
+    logging.info(f"Received ballot: {ballot} for election with ID: {_id}")
+    ballot = list(filter(bool, ballot.split("/")))
+    ip_address = (
+        request.headers.getlist("X-Forwarded-For")[0]
+        if request.headers.getlist("X-Forwarded-For")
+        else request.remote_addr
+    )
+
+    try:
+        election = election_db.get_election_by_id(_id)
+        logging.info(f"Fetched election with ID: {_id} for rendering")
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in fetching election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while fetching election with ID: {_id}",
+            "error": str(e),
+        }
+        return jsonify(output), 400
+
+    candidates = election["candidates"]
+    if len(ballot) != len(set(ballot)) \
+            or not all([c in candidates for c in ballot]):
+        logging.warning(f"Invalid ballot for election - {_id} by {ip_address}")
+        output = {
+            "status": False,
+            "message": f"Invalid ballot. Valid candidates are: {', '.join(candidates)}",
+        }
+        return jsonify(output), 400
+
+    try:
+        election_db.add_ballot_to_election(_id, ip_address, ballot)
+        logging.info(f"Added ballot for election - {_id} by {ip_address}")
+        output = {
+            "status": True,
+            "message": "Ballot added successfully.",
+        }
+        response_code = 200
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in adding ballot for election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while adding ballot for election with ID: {_id}",
+            "error": str(e),
+        }
+        response_code = 400
+
+    return jsonify(output), response_code
 
 
 if __name__ == "__main__":

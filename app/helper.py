@@ -7,8 +7,6 @@ import pytz
 
 from db import ElectionDatabase
 
-IST = pytz.timezone("Asia/Kolkata")
-
 
 class APIHelper:
     def __init__(self, election_db: ElectionDatabase):
@@ -42,11 +40,13 @@ class APIHelper:
 
     def parse_election_creation_data_from_post_request(self, request: flask.Request) -> dict[str, Any]:
         logging.info(f"Received POST request: {request.json}")
-        current_time = datetime.datetime.now(IST)
+        current_time = datetime.datetime.utcnow()
         election = dict()
 
         def initialise_nullable_fields_if_not_none(field: str):
             if (value := request.json.get(field, None)) is not None:
+                if field == "end_time":
+                    value = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
                 election[field] = value
 
         initialise_nullable_fields_if_not_none("_id")
@@ -66,7 +66,7 @@ class APIHelper:
         election["number_of_winners"] = request.json.get("number_of_winners", 1)
 
         election["anonymous"] = request.json.get("anonymous", False)
-        election["update_votes"] = request.json.get("update_votes", True)
+        election["update_ballot"] = request.json.get("update_ballot", True)
         election["candidates"] = request.json.get("candidates", [])
 
         self.verify_election_creation_data(election)
@@ -74,7 +74,7 @@ class APIHelper:
 
     def parse_election_creation_data_from_get_request(self, request: flask.Request) -> dict[str, Any]:
         logging.info(f"Received GET request: {request.view_args}")
-        current_time = datetime.datetime.now(IST)
+        current_time = datetime.datetime.utcnow()
         election = dict()
 
         election["creator"] = (
@@ -87,7 +87,7 @@ class APIHelper:
         election["voting_strategy"] = "instant_runoff"
         election["number_of_winners"] = 1
         election["anonymous"] = False
-        election["update_votes"] = True
+        election["update_ballot"] = True
         election["candidates"] = request.view_args.get("candidates", None).split("/")
 
         self.verify_election_creation_data(election)
