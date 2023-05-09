@@ -17,6 +17,8 @@ class ElectionDatabase:
         self.client = pymongo.MongoClient(os.environ["MONGO_URI"])
         self.db = self.client["ranked_choice_voting"]
         self.election = self.db["election"]
+        # https://www.mongodb.com/docs/manual/tutorial/expire-data/?_ga=2.158588028.759303791.1683560782-971243300.1683359063#expire-documents-at-a-specific-clock-time
+        # self.election.create_index()
 
     def get_election_by_id(self, _id: str) -> Mapping[str, Any]:
         if ObjectId.is_valid(_id):
@@ -197,9 +199,20 @@ class ElectionDatabase:
 
         logging.info(f"Updated election results in database for election {_id} due to ballot removal by {ip_address}")
 
-    def update_election_details(self, election: dict[str, Any]):
+    def update_election(self, election: dict[str, Any]):
         _id = election["_id"]
         if ObjectId.is_valid(_id):
             _id = ObjectId(_id)
         self.election.update_one({"_id": _id}, {"$set": election})
         logging.info(f"Updated election details in database for election {_id}")
+
+    def reset_election_results(self, _id: str):
+        if ObjectId.is_valid(_id):
+            _id = ObjectId(_id)
+        self.election.update_one({"_id": _id}, {"$unset": {
+            "winning_candidates": "",
+            "number_of_rounds": "",
+            "summary": "",
+            "ballots": ""
+        }})
+        logging.info(f"Reset election results in database for election {_id}")

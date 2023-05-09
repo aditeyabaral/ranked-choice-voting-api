@@ -11,8 +11,16 @@ class APIHelper:
     def __init__(self, election_db: ElectionDatabase):
         self.election_db = election_db
 
+    @staticmethod
+    def get_request_ip_address(request: flask.Request) -> str:
+        return (
+            request.headers.getlist("X-Forwarded-For")[0]
+            if request.headers.getlist("X-Forwarded-For")
+            else request.remote_addr
+        )
+
     def verify_election_creation_data(self, election: dict[str, Any]):
-        logging.info(f"Verifying election creation data: {election}")
+        logging.info(f"Verifying election data: {election}")
         if (_id := election.get("_id")) is not None:
             if self.election_db.check_election_id_exists(_id):
                 raise Exception("Election ID already exists. Please choose a different one or do not specify one.")
@@ -90,4 +98,45 @@ class APIHelper:
         election["candidates"] = request.view_args.get("candidates", None).split("/")
 
         self.verify_election_creation_data(election)
+        return election
+
+    def update_election_with_new_data(self, election: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        logging.info(f"Updating election: {election['_id']} with new data: {data}")
+        fields_requiring_election_result_reset = [
+            "candidates",
+            "voting_strategy",
+            "number_of_winners"
+        ]
+
+        allowed_fields = [
+            "name",
+            "description",
+            "start_time",
+            "end_time",
+            "anonymous",
+            "update_ballot"
+        ]
+        allowed_fields += fields_requiring_election_result_reset
+
+        reset_election_result = False
+        for field in data:
+            logging.info(f"Updating field: {field}")
+            if field not in allowed_fields:
+                raise Exception(f"Field {field} is not allowed to be updated or is invalid")
+            else:
+                if field in fields_requiring_election_result_reset:
+                    reset_election_result = True
+                election[field] = data[field]
+
+        _id = election.pop("_id")
+        self.verify_election_creation_data(election)
+        election["_id"] = _id
+        if reset_election_result:
+            logging.info(f"Resetting election result for election: {_id}")
+            election.pop("ballots", None)
+            election.pop("winning_candidates", None)
+            election.pop("number_of_rounds", None)
+            election.pop("summary", None)
+            self.election_db.reset_election_results(_id)
+
         return election

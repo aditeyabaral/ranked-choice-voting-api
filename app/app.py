@@ -46,7 +46,8 @@ def index():
 @app.route("/addElection", methods=["POST"])
 @app.route("/addElection/<path:candidates>", methods=["GET"])
 def add_election(**candidates: str):
-    logging.info(f"Received request to create new election")
+    ip_address = helper.get_request_ip_address(request)
+    logging.info(f"Received request to create new election from {ip_address}")
     http_prefix = "https" if request.is_secure else "http"
     if request.method == "POST":
         request_parser = helper.parse_election_creation_data_from_post_request
@@ -91,12 +92,8 @@ def add_election(**candidates: str):
 
 @app.route("/removeElection/<_id>", methods=["GET"])
 def remove_election(_id: str):
-    logging.info(f"Received request to remove election with ID: {_id}")
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
+    ip_address = helper.get_request_ip_address(request)
+    logging.info(f"Received request to remove election with ID: {_id} from {ip_address}")
 
     try:
         election = election_db.get_election_by_id(_id)
@@ -140,12 +137,8 @@ def remove_election(_id: str):
 
 @app.route("/viewElection/<_id>", methods=["GET"])
 def view_election(_id: str):
-    logging.info(f"Received request to view election with ID: {_id}")
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
+    ip_address = helper.get_request_ip_address(request)
+    logging.info(f"Received request to view election with ID: {_id} from {ip_address}")
 
     try:
         election = election_db.get_election_by_id(_id)
@@ -186,13 +179,9 @@ def view_election(_id: str):
 
 @app.route("/addVote/<_id>/<path:ballot>", methods=["GET"])
 def add_vote(_id: str, ballot: str):
-    logging.info(f"Received ballot: {ballot} for election with ID: {_id}")
+    ip_address = helper.get_request_ip_address(request)
+    logging.info(f"Received ballot: {ballot} for election with ID: {_id} from {ip_address}")
     ballot = list(filter(bool, ballot.split("/")))
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
 
     try:
         election = election_db.get_election_by_id(_id)
@@ -241,11 +230,7 @@ def add_vote(_id: str, ballot: str):
 
 @app.route("/removeVote/<_id>", methods=["GET"])
 def remove_vote(_id: str):
-    ip_address = (
-        request.headers.getlist("X-Forwarded-For")[0]
-        if request.headers.getlist("X-Forwarded-For")
-        else request.remote_addr
-    )
+    ip_address = helper.get_request_ip_address(request)
     logging.info(f"Received request to remove ballot for election - {_id} by {ip_address}")
 
     try:
@@ -277,6 +262,57 @@ def remove_vote(_id: str):
         output = {
             "status": False,
             "message": f"Error occurred while removing ballot for election with ID: {_id}",
+            "error": str(e),
+        }
+        response_code = 400
+
+    return jsonify(output), response_code
+
+
+@app.route("/updateElection/<_id>", methods=["POST"])
+def update_election(_id: str):
+    ip_address = helper.get_request_ip_address(request)
+    logging.info(f"Received request to update election with ID: {_id} with data: {request.json}")
+
+    try:
+        election = election_db.get_election_by_id(_id)
+        logging.info(f"Fetched election with ID: {_id} for rendering")
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in fetching election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while fetching election with ID: {_id}",
+            "error": str(e),
+        }
+        return jsonify(output), 400
+
+    if election["creator"] != ip_address:
+        logging.warning(f"Unauthorized request to update election with ID: {_id} by {ip_address}")
+        output = {
+            "status": False,
+            "message": "Unauthorized request to update election.",
+        }
+        return jsonify(output), 401
+
+    try:
+        updated_election = helper.update_election_with_new_data(election, request.json)
+        logging.info(f"Updated election with ID: {_id} with data: {request.json}")
+        election_db.update_election(updated_election)
+        logging.info(f"Successfully updated election with ID: {_id} with data")
+        updated_election["_id"] = str(updated_election["_id"])
+        output = {
+            "status": True,
+            "message": "Election updated successfully.",
+            "data": updated_election
+        }
+        response_code = 200
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        logging.error(f"Error in updating election - {_id}: {e}: {stacktrace}")
+        output = {
+            "status": False,
+            "message": f"Error occurred while updating election with ID: {_id}",
             "error": str(e),
         }
         response_code = 400
