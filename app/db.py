@@ -9,16 +9,13 @@ from bson.objectid import ObjectId
 from election import get_election_result
 
 
-# TODO: Add return type hints to functions
-
-
 class ElectionDatabase:
     def __init__(self):
         self.client = pymongo.MongoClient(os.environ["MONGO_URI"])
         self.db = self.client["ranked_choice_voting"]
         self.election = self.db["election"]
-        # https://www.mongodb.com/docs/manual/tutorial/expire-data/?_ga=2.158588028.759303791.1683560782-971243300.1683359063#expire-documents-at-a-specific-clock-time
-        # self.election.create_index()
+        seconds_to_expiry = int(os.environ.get("TTL_SECONDS", 2592000))
+        self.election.create_index("end_time", expireAfterSeconds=seconds_to_expiry)
 
     def get_election_by_id(self, _id: str) -> Mapping[str, Any]:
         if ObjectId.is_valid(_id):
