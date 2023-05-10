@@ -29,6 +29,10 @@ class APIHelper:
             if end_time <= election["start_time"]:
                 raise Exception("End time cannot be before start time")
 
+        if election["voting_strategy"] not in ["instant_runoff", "preferential_block", "single_transferable"]:
+            raise Exception("Invalid voting strategy. Valid voting strategies are: "
+                            "instant_runoff, preferential_block, single_transferable")
+
         if election["voting_strategy"] == "instant_runoff" and election["number_of_winners"] != 1:
             raise Exception("Instant runoff voting strategy can only have 1 winner")
 
@@ -38,12 +42,11 @@ class APIHelper:
         if len(candidates) < 2:
             raise Exception("There must be at least 2 candidates")
 
-        # TODO: Enable this condition
-        # duplicate_election_check, duplicate_id = self.election_db.check_duplicate_election_is_running(
-        #     election["creator"], candidates)
-        # if duplicate_election_check:
-        #     raise Exception(f"One or more similar elections created by you is already running: {duplicate_id}. "
-        #                     f"Please wait for it to end.")
+        duplicate_election_check, duplicate_id = self.election_db.check_duplicate_election_is_running(
+            election["creator"], candidates)
+        if duplicate_election_check:
+            raise Exception(f"One or more similar elections created by you is already running: {duplicate_id}. "
+                            f"Please wait for it to end.")
 
     def parse_election_creation_data_from_post_request(self, request: flask.Request) -> dict[str, Any]:
         logging.info(f"Received POST request: {request.json}")

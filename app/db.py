@@ -14,8 +14,15 @@ class ElectionDatabase:
         self.client = pymongo.MongoClient(os.environ["MONGO_URI"])
         self.db = self.client["ranked_choice_voting"]
         self.election = self.db["election"]
-        seconds_to_expiry = int(os.environ.get("TTL_SECONDS", 2592000))
-        self.election.create_index("end_time", expireAfterSeconds=seconds_to_expiry)
+        if "TTL_SECONDS" in os.environ:
+            try:
+                seconds_to_expiry = int(os.environ["TTL_SECONDS"])
+            except ValueError:
+                logging.warning(f"Invalid TTL_SECONDS value: {os.environ['TTL_SECONDS']}"
+                                f". Using default value of 2592000 seconds (30 days)")
+                seconds_to_expiry = 2592000
+            logging.info(f"Setting TTL index to expire after {seconds_to_expiry} seconds")
+            self.election.create_index("end_time", expireAfterSeconds=seconds_to_expiry)
 
     def get_election_by_id(self, _id: str) -> Mapping[str, Any]:
         if ObjectId.is_valid(_id):
@@ -49,27 +56,6 @@ class ElectionDatabase:
             _ids = [str(election["_id"]) for election in elections_with_same_candidates_by_creator]
             _ids = ", ".join(_ids)
             return True, _ids
-
-    def get_election_ballots(self, _id: str) -> Optional[dict[str, list[str]]]:
-        election = self.get_election_by_id(_id)
-        return election.get("ballots", None)
-
-    def get_election_candidates(self, _id: str) -> Optional[list[str]]:
-        election = self.get_election_by_id(_id)
-        return election.get("candidates", None)
-
-    def get_election_start_and_end_time(self, _id: str) -> Optional[
-        tuple[datetime.datetime, datetime.datetime]]:
-        election = self.get_election_by_id(_id)
-        return election["start_time"], election.get("end_time", None)
-
-    def check_election_ballots_can_be_updated(self, _id: str) -> bool:
-        election = self.get_election_by_id(_id)
-        return election["update_ballots"]
-
-    def check_election_allows_ties(self, _id: str) -> bool:
-        election = self.get_election_by_id(_id)
-        return election["allow_ties"]
 
     def add_ballot_to_election(self, _id: str, ip_address: str, ballot: list[str]):
         if ObjectId.is_valid(_id):
