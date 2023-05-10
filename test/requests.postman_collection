@@ -1,0 +1,186 @@
+{
+	"info": {
+		"_postman_id": "226b024f-9f5a-4855-8151-445b2e89cf62",
+		"name": "Ranked Voting",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "14347897"
+	},
+	"item": [
+		{
+			"name": "index",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000",
+					"host": [
+						"localhost"
+					],
+					"port": "5000"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "addElection",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"Your favourite breakfast item poll\",\r\n    \"description\": \"Choose the best way to start your day!\",\r\n    \"candidates\": [\"pancakes\", \"waffles\", \"sandwich\"],\r\n    \"update_votes\": true\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:5000/addElection",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"addElection"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "addElection",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000/addElection/HI/HEY/HELLO",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"addElection",
+						"HI",
+						"HEY",
+						"HELLO"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "removeElection",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000/removeElection/64596796f31d61f65f1b6667",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"removeElection",
+						"64596796f31d61f65f1b6667"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "updateElection",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"Favourite Breakfast Poll\",\r\n    \"candidates\": [\"pancakes\", \"waffles\", \"dosa\", \"idli\"]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:5000/updateElection/645a6c366533ca6873fbc7de",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"updateElection",
+						"645a6c366533ca6873fbc7de"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "viewElection",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000/viewElection/645a6c366533ca6873fbc7de",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"viewElection",
+						"645a6c366533ca6873fbc7de"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "addVote",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000/addVote/645a6c366533ca6873fbc7de/pancakes/waffles/sandwich",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"addVote",
+						"645a6c366533ca6873fbc7de",
+						"pancakes",
+						"waffles",
+						"sandwich"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "removeVote",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:5000/removeVote/64595bc041ad89f201cabbe6",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"removeVote",
+						"64595bc041ad89f201cabbe6"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "HostName",
+			"value": "https://ranked-voter.herokuapp.com"
+		}
+	]
+}
